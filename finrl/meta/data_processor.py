@@ -8,19 +8,18 @@ from finrl.meta.data_processors.processor_wrds import WrdsProcessor as Wrds
 from finrl.meta.data_processors.processor_yahoofinance import (
     YahooFinanceProcessor as YahooFinance,
 )
+from finrl.meta.data_processors.processor_tushare import TushareProcessor  
 
 
 class DataProcessor:
     def __init__(self, data_source, tech_indicator=None, vix=None, **kwargs):
+        # 调试输出
+        print(f"Data source provided: {data_source}")
         if data_source == "alpaca":
-            try:
-                API_KEY = kwargs.get("API_KEY")
-                API_SECRET = kwargs.get("API_SECRET")
-                API_BASE_URL = kwargs.get("API_BASE_URL")
-                self.processor = Alpaca(API_KEY, API_SECRET, API_BASE_URL)
-                print("Alpaca successfully connected")
-            except BaseException:
-                raise ValueError("Please input correct account info for alpaca!")
+            API_KEY = kwargs.get("API_KEY")
+            API_SECRET = kwargs.get("API_SECRET")
+            API_BASE_URL = kwargs.get("API_BASE_URL")
+            self.processor = Alpaca(API_KEY, API_SECRET, API_BASE_URL)
 
         elif data_source == "wrds":
             self.processor = Wrds()
@@ -28,10 +27,16 @@ class DataProcessor:
         elif data_source == "yahoofinance":
             self.processor = YahooFinance()
 
+        elif data_source == "tushare":
+            print("tushare")
+            API_TOKEN = kwargs.get("token")
+            if not API_TOKEN:
+                raise ValueError("Please provide a valid Tushare API token!")
+            self.processor = TushareProcessor(API_TOKEN)
+
         else:
             raise ValueError("Data source input is NOT supported yet.")
 
-        # Initialize variable in case it is using cache and does not use download_data() method
         self.tech_indicator_list = tech_indicator
         self.vix = vix
 

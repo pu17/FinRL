@@ -1,4 +1,4 @@
-print("Running the correct china_A.py")
+print("Running the correct 1 china_A.py")
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -10,10 +10,10 @@ display.set_matplotlib_formats("svg")
 import sys
 sys.path.append('/Users/pu17/Documents/stock/FinRL')
 
-from finrl.meta.data_processor import DataProcessor
+from finrl.meta.data_processor import DataProcessor 
 from finrl.main import check_and_make_directories
-from finrl.meta.env_stock_trading.env_stocktrading import StockTradingEnvV2
-from finrl.agents.stablebaselines3_models import DRLAgent
+from finrl.meta.env_stock_trading.env_stocktrading import StockTradingEnv
+from finrl.agents.stablebaselines3.models import DRLAgent
 from finrl import config
 from finrl.config import (
     DATA_SAVE_DIR,
@@ -49,14 +49,14 @@ ticker_list = [
     "600519.SH", "600547.SH", "600570.SH"
 ]
 
-TRAIN_START_DATE = "2015-01-01"
-TRAIN_END_DATE = "2019-08-01"
-TRADE_START_DATE = "2019-08-01"
-TRADE_END_DATE = "2020-01-03"
+TRAIN_START_DATE = "2019-01-01"
+TRAIN_END_DATE = "2021-08-01"
+TRADE_START_DATE = "2021-08-01"
+TRADE_END_DATE = "2024-09-03"
 
 TIME_INTERVAL = "1d"
 kwargs = {}
-kwargs["token"] = "27080ec403c0218f96f388bca1b1d85329d563c91a43672239619ef5"
+kwargs["token"] = "4bccdd4d130c436773beef521fbecc05ab0079026122c370908f3c93"
 
 # 使用最新的 DataProcessor 接口
 p = DataProcessor(
@@ -68,7 +68,10 @@ p = DataProcessor(
 )
 
 # 下载和清理数据
-p.download_data(ticker_list=ticker_list)
+p.download_data(ticker_list=ticker_list,
+    start_date=TRAIN_START_DATE,
+    end_date=TRADE_END_DATE,
+    time_interval=TIME_INTERVAL)
 p.clean_data()
 p.fillna()
 

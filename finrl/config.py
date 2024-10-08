@@ -7,14 +7,14 @@ TENSORBOARD_LOG_DIR = "tensorboard_log"
 RESULTS_DIR = "results"
 
 # date format: '%Y-%m-%d'
-TRAIN_START_DATE = "2014-01-06"  # bug fix: set Monday right, start date set 2014-01-01 ValueError: all the input array dimensions for the concatenation axis must match exactly, but along dimension 0, the array at index 0 has size 1658 and the array at index 1 has size 1657
-TRAIN_END_DATE = "2020-07-31"
+TRAIN_START_DATE = "2023-07-01"  # bug fix: set Monday right, start date set 2014-01-01 ValueError: all the input array dimensions for the concatenation axis must match exactly, but along dimension 0, the array at index 0 has size 1658 and the array at index 1 has size 1657
+TRAIN_END_DATE = "2023-08-31"
 
-TEST_START_DATE = "2020-08-01"
-TEST_END_DATE = "2021-10-01"
+TEST_START_DATE = "2023-09-01"
+TEST_END_DATE = "2023-10-01"
 
-TRADE_START_DATE = "2021-11-01"
-TRADE_END_DATE = "2021-12-01"
+TRADE_START_DATE = "2023-11-01"
+TRADE_END_DATE = "2023-12-01"
 
 # stockstats technical indicator column names
 # check https://pypi.org/project/stockstats/ for different names
@@ -74,3 +74,5 @@ ALPACA_API_KEY = "xxx"  # your ALPACA_API_KEY
 ALPACA_API_SECRET = "xxx"  # your ALPACA_API_SECRET
 ALPACA_API_BASE_URL = "https://paper-api.alpaca.markets"  # alpaca url
 BINANCE_BASE_URL = "https://data.binance.vision/"  # binance url
+ALPACA_API_KEY = "CK72JLEG3JL1EYNM1NS3"
+ALPACA_API_SECRET = "i6lnQ0jUtq4BN4DPTxU1I2QK06Cm0X6lpHnm5qr4"

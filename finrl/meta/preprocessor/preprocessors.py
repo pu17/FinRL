@@ -333,3 +333,109 @@ class FeatureEngineer:
         except ValueError:
             raise Exception("Turbulence information could not be added.")
         return turbulence_index
+
+
+
+import tushare as ts
+import pandas as pd
+
+class MarketBreadthFeatureEngineer:
+
+    def __init__(self, index_code, start_date, end_date, tushare_token):
+        """
+        Initializes the MarketBreadthFeatureEngineer with the given parameters.
+
+        Parameters
+        ----------
+        index_code : str
+            The index code (e.g., '399001.SZ' for Shenzhen Index).
+        start_date : str
+            The start date for fetching data (format: 'YYYYMMDD').
+        end_date : str
+            The end date for fetching data (format: 'YYYYMMDD').
+        tushare_token : str
+            Your Tushare API token.
+        """
+        ts.set_token(tushare_token)
+        self.pro = ts.pro_api()
+        self.index_code = index_code
+        self.start_date = start_date
+        self.end_date = end_date
+        self.stock_list = []
+        self.all_data = pd.DataFrame()
+
+    def fetch_index_components(self):
+        """Fetch the component stocks of the given index."""
+        print(f"Fetching index components for {self.index_code}...")
+        index_weights = self.pro.index_weight(index_code=self.index_code, trade_date=self.end_date)
+        self.stock_list = index_weights['con_code'].unique().tolist()
+        print(f"Fetched {len(self.stock_list)} component stocks for index {self.index_code}.")
+
+    def fetch_daily_data(self):
+        """Fetch the daily price data for all component stocks."""
+        print(f"Fetching daily data for stocks from {self.start_date} to {self.end_date}...")
+        for stock_code in self.stock_list:
+            try:
+                stock_data = self.pro.daily(ts_code=stock_code, start_date=self.start_date, end_date=self.end_date)
+                if not stock_data.empty:
+                    self.all_data = pd.concat([self.all_data, stock_data], ignore_index=True)
+            except Exception as e:
+                print(f"Error fetching data for {stock_code}: {e}")
+        print(f"Fetched daily data for {len(self.stock_list)} stocks.")
+
+    def add_market_breadth(self):
+        """
+        Calculates and adds market breadth indicators to self.all_data.
+
+        Returns
+        -------
+        pd.DataFrame
+            The dataframe with added columns for market breadth indicators.
+        """
+        df_copy = self.all_data.copy()
+
+        # 计算每日涨跌幅
+        df_copy['pct_chg'] = df_copy.groupby('ts_code')['close'].pct_change() * 100
+
+        # 标记上涨和下跌
+        df_copy['up'] = (df_copy['pct_chg'] > 0).astype(int)
+        df_copy['down'] = (df_copy['pct_chg'] < 0).astype(int)
+
+        # 按日期统计上涨和下跌的股票数量
+        daily_up = df_copy.groupby('trade_date')['up'].sum()
+        daily_down = df_copy.groupby('trade_date')['down'].sum()
+
+        # 创建市场宽度和广度指标的 DataFrame
+        market_breadth = pd.DataFrame({
+            'trade_date': daily_up.index,
+            'up_count': daily_up.values,
+            'down_count': daily_down.values
+        })
+
+        # 计算上涨/下跌比率和市场宽度指标
+        market_breadth['up_down_ratio'] = market_breadth['up_count'] / (market_breadth['down_count'] + 1e-6)  # 避免除以0
+        market_breadth['market_breadth'] = market_breadth['up_count'] - market_breadth['down_count']
+
+        return market_breadth
+
+    def preprocess_data(self, df):
+
+
+        # Step 1: Fetch index components and daily data
+        self.fetch_index_components()
+        self.fetch_daily_data()
+
+        # Step 2: Calculate the market breadth indicators
+        market_breadth = self.add_market_breadth()
+
+        # Step 3: Merge market breadth with the input dataframe
+        market_breadth['trade_date'] = pd.to_datetime(market_breadth['trade_date'], format='%Y%m%d')
+        df['date'] = pd.to_datetime(df['date'])
+
+        # Merge the market breadth metrics into the provided dataframe
+        df_merged = pd.merge(df, market_breadth, left_on='date', right_on='trade_date', how='left')
+
+        # Drop the duplicate 'trade_date' column
+        df_merged = df_merged.drop(columns=['trade_date'])
+
+        return df_merged
