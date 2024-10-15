@@ -418,9 +418,20 @@ class MarketBreadthFeatureEngineer:
 
         return market_breadth
 
-    def preprocess_data(self, df):
+    def calculate_and_merge_market_breadth(self, df):
+        """
+        Fetches data, calculates market breadth indicators, and merges them with the given dataframe.
 
+        Parameters
+        ----------
+        df : pd.DataFrame
+            The input dataframe to which market breadth indicators will be added.
 
+        Returns
+        -------
+        pd.DataFrame
+            The input dataframe with added market breadth indicators.
+        """
         # Step 1: Fetch index components and daily data
         self.fetch_index_components()
         self.fetch_daily_data()
@@ -439,3 +450,20 @@ class MarketBreadthFeatureEngineer:
         df_merged = df_merged.drop(columns=['trade_date'])
 
         return df_merged
+
+    def preprocess_data(self, df):
+        """
+        Preprocess the given dataframe by adding market breadth indicators.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            The input dataframe to be processed.
+
+        Returns
+        -------
+        pd.DataFrame
+            The processed dataframe with market breadth indicators.
+        """
+        # Call the new method to calculate and merge market breadth
+        return self.calculate_and_merge_market_breadth(df)
