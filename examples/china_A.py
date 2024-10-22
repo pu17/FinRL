@@ -1,107 +1,226 @@
-print("Running the correct 1 china_A.py")
-import warnings
-warnings.filterwarnings("ignore")
-
-import pandas as pd
-from IPython import display
-display.set_matplotlib_formats("svg")
-
-# 确保路径正确，能够正确导入 finrl 模块
-import sys
-sys.path.append('/Users/pu17/Documents/stock/FinRL')
-
-from finrl.meta.data_processor import DataProcessor 
-from finrl.main import check_and_make_directories
+import os
+from stable_baselines3 import A2C, DDPG, PPO, TD3, SAC
 from finrl.meta.env_stock_trading.env_stocktrading import StockTradingEnv
 from finrl.agents.stablebaselines3.models import DRLAgent
-from finrl import config
-from finrl.config import (
-    DATA_SAVE_DIR,
-    TRAINED_MODEL_DIR,
-    TENSORBOARD_LOG_DIR,
-    RESULTS_DIR,
-    INDICATORS,
-    TRAIN_START_DATE,
-    TRAIN_END_DATE,
-    TRADE_START_DATE,
-    TRADE_END_DATE
-)
-# import pyfolio
-# from pyfolio import timeseries
-# import os
+import pandas as pd
+from finrl.meta.preprocessor.yahoodownloader import YahooDownloader
+from finrl.meta.preprocessor.preprocessors import FeatureEngineer, data_split
+from finrl.config import INDICATORS
+import datetime
+import itertools
+import pytz
 
-# 确保显示所有列
-pd.options.display.max_columns = None
+# 设置参数
+if_using_a2c = True
+if_using_ddpg = True
+if_using_ppo = True
+if_using_td3 = True
+if_using_sac = True
+TRAINED_MODEL_DIR = '/Users/pu17/Documents/stock/FinRL/trained_models'
 
-print("ALL Modules have been imported!")
+# 设置文件路径常量
+MARKET_BREADTH_FILE_PATH = '/Users/pu17/Documents/stock/stock_price_prediction/data/processed/market_breadth_all_exchanges.csv'
+PROCESSED_DATA_DIR = '/Users/pu17/Documents/stock/FinRL/processed_data'
 
-### 创建文件夹
-check_and_make_directories(
-    [DATA_SAVE_DIR, TRAINED_MODEL_DIR, TENSORBOARD_LOG_DIR, RESULTS_DIR]
-)
+# 1. 加载训练好的模型
+def load_trained_models():
+    trained_models = {}
+    if if_using_a2c:
+        trained_models['a2c'] = A2C.load(os.path.join(TRAINED_MODEL_DIR, "agent_a2c"))
+    if if_using_ddpg:
+        trained_models['ddpg'] = DDPG.load(os.path.join(TRAINED_MODEL_DIR, "agent_ddpg"))
+    if if_using_ppo:
+        trained_models['ppo'] = PPO.load(os.path.join(TRAINED_MODEL_DIR, "agent_ppo"))
+    if if_using_td3:
+        trained_models['td3'] = TD3.load(os.path.join(TRAINED_MODEL_DIR, "agent_td3"))
+    if if_using_sac:
+        trained_models['sac'] = SAC.load(os.path.join(TRAINED_MODEL_DIR, "agent_sac"))
+    return trained_models
 
-### 下载数据、清理和特征工程
+# 2. 准备新的交易数据
+def prepare_trade_data(start_date, end_date):
+    print(f"尝试下载数据，开始日期: {start_date}, 结束日期: {end_date}")
+    
+    # 下载数据
+    sz_df_finrl = YahooDownloader(
+        start_date=start_date,
+        end_date=end_date,
+        ticker_list=['000001.SS', '399001.SZ', '603000.SS']
+    ).fetch_data()
 
-ticker_list = [
-    "600000.SH", "600009.SH", "600016.SH", "600028.SH",
-    "600030.SH", "600031.SH", "600036.SH", "600050.SH",
-    "600104.SH", "600196.SH", "600276.SH", "600309.SH",
-    "600519.SH", "600547.SH", "600570.SH"
-]
+    print(f"下载的数据日期范围: {sz_df_finrl['date'].min()} 到 {sz_df_finrl['date'].max()}")
+    print(f"下载的数据形状: {sz_df_finrl.shape}")
 
-TRAIN_START_DATE = "2019-01-01"
-TRAIN_END_DATE = "2021-08-01"
-TRADE_START_DATE = "2021-08-01"
-TRADE_END_DATE = "2024-09-03"
+    # 预处理数据
+    fe = FeatureEngineer(
+        use_technical_indicator=True,
+        tech_indicator_list=INDICATORS,
+        use_vix=True,
+        use_turbulence=True,
+        user_defined_feature=False
+    )
 
-TIME_INTERVAL = "1d"
-kwargs = {}
-kwargs["token"] = "4bccdd4d130c436773beef521fbecc05ab0079026122c370908f3c93"
+    processed = fe.preprocess_data(sz_df_finrl)
 
-# 使用最新的 DataProcessor 接口
-p = DataProcessor(
-    data_source="tushare",
-    start_date=TRAIN_START_DATE,
-    end_date=TRADE_END_DATE,
-    time_interval=TIME_INTERVAL,
-    **kwargs
-)
+    # 读取市场宽度数据
+    market_breadth_data = pd.read_csv(MARKET_BREADTH_FILE_PATH)
+    market_breadth_data['date'] = pd.to_datetime(market_breadth_data['trade_date']).dt.strftime('%Y-%m-%d')
 
-# 下载和清理数据
-p.download_data(ticker_list=ticker_list,
-    start_date=TRAIN_START_DATE,
-    end_date=TRADE_END_DATE,
-    time_interval=TIME_INTERVAL)
-p.clean_data()
-p.fillna()
+    # 选择交易所
+    def select_exchange(row):
+        if row['tic'] == '399001.SZ':
+            return 'SZSE'
+        elif row['tic'] in ['000001.SS', '603000.SS']:
+            return 'SSE'
+        return None
 
-# 添加技术指标
-p.add_technical_indicator(config.INDICATORS)
-p.fillna()
+    processed['exchange'] = processed.apply(select_exchange, axis=1)
 
-print(f"p.dataframe: {p.dataframe}")
+    # 合并数据
+    merged_df = pd.merge(processed, market_breadth_data, how='left', on=['date', 'exchange'])
+    merged_df.drop(columns=['trade_date', 'exchange'], inplace=True)
 
-### 特征工程
-from finrl.meta.data_processors import FeatureEngineer
+    # 在合并市场宽度数据后打印信息
+    print(f"合并市场宽度数据后的日期范围: {merged_df['date'].min()} 到 {merged_df['date'].max()}")
+    print(f"合并市场宽度数据后的数据形状: {merged_df.shape}")
 
-fe = FeatureEngineer(
-    use_technical_indicator=True,
-    tech_indicator_list=config.INDICATORS,
-    use_vix=False,  # 如果需要加入VIX, 这里可以设置为True
-    use_turbulence=True,  # 如果需要加入Turbulence指数，这里可以设置为True
-    user_defined_feature=False,
-)
+    # 填充缺失数据
+    list_ticker = merged_df["tic"].unique().tolist()
+    list_date = list(pd.date_range(merged_df['date'].min(), merged_df['date'].max()).astype(str))
+    combination = list(itertools.product(list_date, list_ticker))
 
-# 预处理数据
-processed_data = fe.preprocess_data(p.dataframe)
-print(f"Processed Data: {processed_data.head()}")
+    processed_full = pd.DataFrame(combination, columns=["date", "tic"]).merge(merged_df, on=["date", "tic"], how="left")
+    processed_full = processed_full[processed_full['date'].isin(merged_df['date'])]
+    processed_full = processed_full.sort_values(['date', 'tic'])
+    
+    # 在填充前后打印信息
+    print(f"填充前的日期范围: {processed_full['date'].min()} 到 {processed_full['date'].max()}")
+    print(f"填充前的数据形状: {processed_full.shape}")
+    
+    processed_full = processed_full.fillna(method='ffill').fillna(0)
+    
+    print(f"填充后的日期范围: {processed_full['date'].min()} 到 {processed_full['date'].max()}")
+    print(f"填充后的数据形状: {processed_full.shape}")
 
-### 拆分训练数据集
-train = p.data_split(processed_data, TRAIN_START_DATE, TRAIN_END_DATE)
-print(f"len(train.tic.unique()): {len(train.tic.unique())}")
-print(f"train.tic.unique(): {train.tic.unique()}")
-print(f"train.head(): {train.head()}")
-print(f"train.shape: {train.shape}")
+    # 保存处理后的数据
+    os.makedirs(PROCESSED_DATA_DIR, exist_ok=True)
+    processed_full.to_csv(os.path.join(PROCESSED_DATA_DIR, 'latest_trade_data.csv'), index=False)
+    print(f"处理后的数据已保存到 {os.path.join(PROCESSED_DATA_DIR, 'latest_trade_data.csv')}")
 
-# 股票维度和状态空间设置
-stock_dimension = len
+    return processed_full
+
+# 3. 使用模型进行预测
+def predict_with_models(models, trade_data):
+    print(f"trade_data shape: {trade_data.shape}")
+    print(f"trade_data columns: {trade_data.columns}")
+    print(f"Sample of 'close' column: {trade_data['close'].head()}")
+
+    # 确保数据按日期和股票代码排序
+    trade_data = trade_data.sort_values(['date', 'tic'])
+
+    # 设置环境参数
+    stock_dimension = len(trade_data.tic.unique())
+    state_space = 1 + 2*stock_dimension + len(INDICATORS)*stock_dimension
+    
+    buy_cost_list = sell_cost_list = [0.001] * stock_dimension
+    num_stock_shares = [0] * stock_dimension
+
+    env_kwargs = {
+        "hmax": 100,
+        "initial_amount": 1000000,
+        "num_stock_shares": num_stock_shares,
+        "buy_cost_pct": buy_cost_list,
+        "sell_cost_pct": sell_cost_list,
+        "state_space": state_space,
+        "stock_dim": stock_dimension,
+        "tech_indicator_list": INDICATORS,
+        "action_space": stock_dimension,
+        "reward_scaling": 1e-4
+    }
+
+    # 创建环境
+    e_trade_gym = StockTradingEnv(df=trade_data, turbulence_threshold=70, risk_indicator_col='vix', **env_kwargs)
+
+    results = {}
+    for model_name, model in models.items():
+        print(f"使用 {model_name.upper()} 模型进行预测...")
+        try:
+            df_account_value, df_actions = DRLAgent.DRL_prediction(model=model, environment=e_trade_gym)
+            
+            # 处理动作数据
+            df_actions['date'] = trade_data['date'].unique()
+            df_actions = df_actions.melt(id_vars=['date'], var_name='tic', value_name='action')
+            df_actions = df_actions.sort_values(['date', 'tic'])
+            
+            results[model_name] = {
+                "account_value": df_account_value, 
+                "actions": df_actions
+            }
+        except Exception as e:
+            print(f"{model_name.upper()} 模型预测失败: {str(e)}")
+            continue
+    
+    return results
+
+# 4. 分析预测结果 (这部分保持不变)
+def analyze_results(results):
+    # 实现与之前相同
+    pass
+
+# 主函数
+def main():
+    # 获取当前日期（考虑时区）
+    china_tz = pytz.timezone('Asia/Shanghai')
+    current_date = datetime.datetime.now(china_tz).date()
+    
+    # 设置结束日期为今天
+    end_date = current_date.strftime("%Y-%m-%d")
+    
+    # 设置开始日期为500天前
+    start_date = (current_date - datetime.timedelta(days=500)).strftime("%Y-%m-%d")
+
+    print(f"当前日期: {current_date}")
+    print(f"设置的开始日期: {start_date}")
+    print(f"设置的结束日期: {end_date}")
+
+    # 加载模型
+    loaded_models = load_trained_models()
+
+    # 准备新的交易数据
+    new_trade_data = prepare_trade_data(start_date, end_date)
+
+    print(f"处理后的数据日期范围: {new_trade_data['date'].min()} 到 {new_trade_data['date'].max()}")
+    print(f"处理后的数据形状: {new_trade_data.shape}")
+
+    # 使用模型进行预测
+    # prediction_results = predict_with_models(loaded_models, new_trade_data)
+
+    # # # 分析预测结果
+    # # analyze_results(prediction_results)
+
+    # # 输出每个模型的动作
+    # for model_name, result in prediction_results.items():
+    #     print(f"\n{model_name.upper()} 模型的预测动作:")
+    #     actions_df = result['actions']
+        
+    #     # 获取最新的日期
+    #     latest_date = actions_df['date'].max()
+    #     latest_actions = actions_df[actions_df['date'] == latest_date]
+        
+    #     print(f"最新日期 {latest_date} 的动作:")
+    #     for _, row in latest_actions.iterrows():
+    #         action = row['action']
+    #         if action > 0:
+    #             action_type = "买入"
+    #         elif action < 0:
+    #             action_type = "卖出"
+    #         else:
+    #             action_type = "持有"
+    #         print(f"股票 {row['tic']}: {action_type} {abs(action)} 股")
+        
+    #     # 可选：保存完整的动作数据到 CSV 文件
+    #     actions_df.to_csv(f"{model_name}_actions.csv", index=False)
+    #     print(f"完整的动作数据已保存到 {model_name}_actions.csv")
+
+if __name__ == "__main__":
+    main()

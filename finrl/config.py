@@ -26,11 +26,7 @@ INDICATORS = [
     "cci_30",
     "dx_30",
     "close_30_sma",
-    "close_60_sma",
-    'up_count',	
-    'down_count',
-    'up_down_ratio',
-    'market_breadth'
+    "close_60_sma"
 ]
 
 

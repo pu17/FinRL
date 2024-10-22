@@ -218,9 +218,11 @@ def main():
         trained_models = train_models(env_train)
 
         # 保存训练好的模型
+        current_date = datetime.now().strftime("%Y%m%d")
         for model_name, model in trained_models.items():
-            model.save(TRAINED_MODEL_DIR + f"/agent_{model_name}")
-        print("所有模型训练完成并保存。")
+            model_path = f"{TRAINED_MODEL_DIR}/agent_{model_name}_{current_date}"
+            model.save(model_path)
+        print(f"所有模型训练完成并保存。保存日期: {current_date}")
 
         # 执行回测
         backtest_results = backtest(trade, trained_models)
