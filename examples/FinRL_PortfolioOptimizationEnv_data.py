@@ -4,8 +4,10 @@ import torch
 import numpy as np
 from sklearn.preprocessing import MaxAbsScaler
 from finrl.meta.preprocessor.yahoodownloader import YahooDownloader
+from finrl.meta.preprocessor.tusharedownloader import TushareDownloader
 from finrl.meta.preprocessor.preprocessors import GroupByScaler, FeatureEngineer
 from finrl.config import INDICATORS
+from datetime import datetime
 
 def setup_environment():
     # 添加环境路径
@@ -13,12 +15,31 @@ def setup_environment():
 
 def collect_data():
     # 数据收集逻辑
-    TOP_BRL = ["IAU", "YINN", "NVDA", 'GOOGL', 'AAPL']
-    portfolio_raw_df = YahooDownloader(
-        start_date='2016-01-01',
-        end_date='2024-10-25',
+    TOP_BRL = ['000001.SS', '399001.SZ', '603000.SS', '000035.SZ', '002261.SZ', '000938.SZ', '600547.SS', '600756.SS', '601899.SS', '601988.SS']
+    
+    # 获取今天的日期作为默认的结束日期
+    end_date = datetime.today().strftime('%Y%m%d')
+    print(end_date)
+    
+    portfolio_raw_df = TushareDownloader(
+        start_date='20150101',
+        end_date=end_date,
         ticker_list=TOP_BRL
     ).fetch_data()
+    
+    # 检查最大日期
+    max_date = portfolio_raw_df['date'].max()
+    print("Maximum date in DataFrame: ", max_date)
+    
+    # 检查重复项
+    duplicate_rows = portfolio_raw_df.duplicated()
+    num_duplicates = duplicate_rows.sum()
+    print(f"Number of duplicate rows: {num_duplicates}")
+    
+    if num_duplicates > 0:
+        print("Duplicate rows:")
+        print(portfolio_raw_df[duplicate_rows])
+    
     print("Shape of DataFrame: ", portfolio_raw_df.shape)
     return portfolio_raw_df
 
@@ -27,8 +48,8 @@ def preprocess_data(portfolio_raw_df):
     fe = FeatureEngineer(
         use_technical_indicator=True,
         tech_indicator_list=INDICATORS,
-        use_vix=True,
-        use_turbulence=True,
+        use_vix=False,
+        use_turbulence=False,
         user_defined_feature=False
     )
     processed = fe.preprocess_data(portfolio_raw_df)
@@ -71,7 +92,7 @@ if __name__ == "__main__":
     setup_environment()
     portfolio_raw_df = collect_data()
     processed = preprocess_data(portfolio_raw_df)
-    # processed = preprocess_with_custom_feature_engineer(processed)
+    processed = preprocess_with_custom_feature_engineer(processed)
     portfolio_raw_df = fill_missing_values(processed)
     df_portfolio = normalize_data(portfolio_raw_df)
     save_to_csv(df_portfolio)
