@@ -11,13 +11,15 @@ from finrl.meta.preprocessor.yahoodownloader import YahooDownloader
 from finrl.meta.preprocessor.preprocessors import GroupByScaler
 from finrl.meta.env_portfolio_optimization.env_portfolio_optimization import PortfolioOptimizationEnv
 from finrl.agents.portfolio_optimization.models import DRLAgent
-from finrl.agents.portfolio_optimization.architectures import EIIE
+from finrl.agents.portfolio_optimization.architectures import EIIE, GPM
 import mysql.connector
 from mysql.connector import Error
 
 import io
 import sys
 import re
+from datetime import datetime
+import os
 
 # 定义捕获输出的函数
 def capture_output(func, *args, **kwargs):
@@ -60,6 +62,7 @@ def parse_validation_output(output):
     metrics_list = []
     
     for block in blocks:
+        print("解析的块内容：", block)  # 打印每个块的内容
         metrics = {}
         try:
             metrics["initial_portfolio_value"] = float(re.search(r"Initial portfolio value:([\d\.]+)", block).group(1))
@@ -81,6 +84,7 @@ TOP_BRL = [
     '002261.SZ', '000938.SZ', '600547.SS', '600756.SS',
     '601899.SS', '601988.SS'
 ]
+
 num_assets = len(TOP_BRL)  # 资产数量
 
 # 读取CSV文件
@@ -137,54 +141,68 @@ policy_kwargs = {
 model = DRLAgent(environment).get_model("pg", device, model_kwargs, policy_kwargs)
 
 # 定义模型参数路径
-model_path = "/Users/pu17/Documents/stock/FinRL/examples/policy_EIIE_34_10.pt"
-
-# 加载保存的模型参数（如果有）
-model.train_policy.load_state_dict(torch.load(model_path))
+policy_name = model_kwargs["policy"].__name__
+# 初始 experiment_id 为 None
+experiment_id = None
+model_path = f"/Users/pu17/Documents/stock/FinRL/examples/models/policy_{policy_name}_{initial_features}_{time_window}_1.pt"
 
 # 定义训练轮数
-episodes = 5
+episodes = 10
 
-# 初始化 testing_metrics 字典，按照新的结构组织
+# 初始化 testing_metrics 字典，移除 UBAH 相关部分
 testing_metrics = {
-    "model": {
-        "training": {},
-        "test": {}
-    },
-    "UBAH": {
-        "training": {},
-        "test": {}
-    }
+    "training": {},
+    "test": {}
 }
-
-# 定义实验名称和备注
-experiment_name = "EIIE_Portfolio_Optimization"
-experiment_notes = f"训练 EIIE 模型进行投资组合优化，资产数量: {num_assets}，特征数量: {len(features)}。"
 
 DB_PATH = '/Users/pu17/Documents/stock/stock_price_prediction'
 # 添加环境路径
-import sys
 sys.path.append(DB_PATH)
-from feature.mysqlhandler import MySQLHandler  # 假设 MySQLHandler 类保存在 mysql_handler.py 中
-# 实例化 MySQLHandler
-mysql_handler = MySQLHandler()
+from feature.experimenthandler import ExperimentHandler
+
+# 实例化 ExperimentHandler
+experiment_handler = ExperimentHandler()
+
+
 
 # 检查数据库连接
-if mysql_handler.connection and mysql_handler.connection.is_connected():
+if experiment_handler.connection and experiment_handler.connection.is_connected():
     logging.info("成功连接到数据库。")
+
+    # 记录训练开始时间
+    start_time = datetime.now()
 
     # 捕捉并解析训练阶段的输出
     training_output = capture_output(DRLAgent.train_model, model, episodes=episodes)
     parsed_training_metrics_list = parse_validation_output(training_output)
-    
+
     if parsed_training_metrics_list:
         parsed_training_metrics = parsed_training_metrics_list[-1]
-        testing_metrics["model"]["training"] = parsed_training_metrics
+        parsed_training_metrics["value"] = environment._asset_memory["final"]
+        testing_metrics["training"] = parsed_training_metrics
         logging.info("成功解析训练阶段的指标。")
         logging.info(f"训练阶段的指标：{parsed_training_metrics}")
     else:
         logging.error("未能解析训练阶段的指标。")
-    
+
+    # 检查模型文件是否存在
+    if os.path.exists(model_path):
+        experiment_id = experiment_handler.get_experiment_id_by_model_path(model_path)
+        if experiment_id:
+            existing_experiment = experiment_handler.get_experiment_by_id(experiment_id)
+            if existing_experiment:
+                # 从 parameters 中提取 episodes
+                parameters = json.loads(existing_experiment['parameters'])
+                existing_episodes = parameters.get('episodes', 0)
+                episodes += existing_episodes  # 更新 episodes
+                # 更新模型路径后缀
+                model_path = f"/Users/pu17/Documents/stock/FinRL/examples/models/policy_{policy_name}_{initial_features}_{time_window}_{experiment_id}.pt"
+    else:
+        experiment_id = None  # 如果模型不存在，则创建新实验
+
+    # 保存模型参数
+    torch.save(model.train_policy.state_dict(), model_path)
+
     # 创建测试环境并加载策略
     environment_test = PortfolioOptimizationEnv(
         df_portfolio_2024,
@@ -195,93 +213,102 @@ if mysql_handler.connection and mysql_handler.connection.is_connected():
         normalize_df=None
     )
     policy = EIIE(time_window=time_window, initial_features=len(features), device=device)
-    policy.load_state_dict(torch.load(model_path))
-    
+
     # 捕捉并解析测试阶段的输出
     validation_output_2024 = capture_output(DRLAgent.DRL_validation, model, environment_test, policy=policy)
     parsed_test_metrics_list = parse_validation_output(validation_output_2024)
-    
+
     if parsed_test_metrics_list:
         parsed_test_metrics = parsed_test_metrics_list[-1]
-        testing_metrics["model"]["test"] = parsed_test_metrics
+        parsed_test_metrics["value"] = environment_test._asset_memory["final"]
+        testing_metrics["test"] = parsed_test_metrics
         logging.info("成功解析测试阶段的指标。")
         logging.info(f"测试阶段的指标：{parsed_test_metrics}")
     else:
         logging.error("未能解析测试阶段的指标。")
-    
-    # 定义 UBAH 策略的运行函数
-    PORTFOLIO_SIZE = len(TOP_BRL)-3
 
-    def run_UBAH(environment, portfolio_size):
-        """
-        运行 Uniform Buy and Hold (UBAH) 策略并收集性能指标。
+    # 定义 training_parameters 字典
+    training_parameters = {
+        "time_window": time_window,
+        "initial_features": initial_features,
+        "features": features,
+        "initial_amount": 100000,
+        "comission_fee_pct": 0.0025,
+        "model_kwargs": {
+            "lr": model_kwargs["lr"],
+            "policy": model_kwargs["policy"].__name__,  # 使用 __name__ 获取类名
+        },
+        "policy_kwargs": policy_kwargs,
+        "episodes": episodes,  # 将 episodes 作为 training_parameters 的一部分
+        "portfolio_size": len(TOP_BRL)
+    }
 
-        参数:
-            environment (PortfolioOptimizationEnv): 投资组合优化环境。
-            portfolio_size (int): 资产数量。
-
-        返回:
-            dict: 包含 UBAH 策略的性能指标。
-        """
-        terminated = False
-        environment.reset()
-        while not terminated:
-            # 定义 UBAH 策略动作：持有所有资产的等权重
-            action = [0] + [1 / portfolio_size] * portfolio_size
-            _, _, terminated, _ = environment.step(action)
-        # 捕捉 calculate_metrics 的输出
-        metrics_output = capture_output(environment.calculate_metrics)
-        # 解析指标
-        parsed_metrics_list = parse_validation_output(metrics_output)
-        if parsed_metrics_list:
-            return parsed_metrics_list[-1]  # 获取最后一个指标块
+    # 在打印最终的 testing_metrics 字典之前，确保所有的 float32 类型被转换为 float
+    def convert_to_float(obj):
+        if isinstance(obj, dict):
+            return {k: convert_to_float(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [convert_to_float(i) for i in obj]
+        elif isinstance(obj, np.float32):
+            return float(obj)
         else:
-            logging.error("未能解析 UBAH 策略的指标。")
-            return {}
+            return obj
 
-    # 运行并解析 UBAH 策略的训练阶段指标
-    # UBAH_results_training = run_UBAH(environment, PORTFOLIO_SIZE)
-    # testing_metrics["UBAH"]["training"] = UBAH_results_training
-    # logging.info("成功解析 UBAH 策略训练阶段的指标。")
-    # logging.info(f"UBAH 训练阶段的指标：{UBAH_results_training}")
+    # 转换 testing_metrics 中的所有 float32 类型
+    testing_metrics = convert_to_float(testing_metrics)
 
-    # # 运行并解析 UBAH 策略的测试阶段指标
-    # UBAH_results_test = run_UBAH(environment_test, PORTFOLIO_SIZE)
-    # testing_metrics["UBAH"]["test"] = UBAH_results_test
-    # logging.info("成功解析 UBAH 策略测试阶段的指标。")
-    # logging.info(f"UBAH 测试阶段的指标：{UBAH_results_test}")
+    # 打印最终的 testing_metrics 字典
+    print("最终的测试指标结构：")
+    print(json.dumps(testing_metrics, indent=4, ensure_ascii=False))
 
-    # # 打印最终的 testing_metrics 字典
-    # print("最终的测试指标结构：")
-    # print(json.dumps(testing_metrics, indent=4, ensure_ascii=False))
+    # 定义实验名称和备注
+    experiment_name = "EIIE_Portfolio_Optimization"
+    experiment_notes = f"训练 EIIE 模型进行投资组合优化，资产数量: {num_assets}，特征数量: {len(features)}。"
 
-#     # 插入完整的实验数据
-#     experiment_id = mysql_handler.insert_experiment_with_stocks(
-#         name=experiment_name,
-#         notes=experiment_notes,
-#         parameters=training_parameters,
-#         training_metrics=testing_metrics["model"]["training"],
-#         testing_metrics={
-#             "test": testing_metrics["model"]["test"],
-#             "UBAH": testing_metrics["UBAH"]
-#         },
-#         stock_codes=TOP_BRL,
-#         model_type="PolicyGradient",
-#         architecture_layers="128,64",
-#         architecture_activation="relu"
-#     )
+    experiment_handler.drop_table('experiments')
+    experiment_handler.create_table('experiments')
+    # 记录训练结束时间
+    end_time = datetime.now()
 
-#     if experiment_id:
-#         # 进行后续操作，如模型验证等
-#         logging.info("所有实验数据已成功存储。")
-#     else:
-#         logging.error("实验数据插入失败。")
+    if experiment_id:
+        # 可能需要从 existing_experiment 中提取所有信息，但这里假设要更新 parameters
+        experiment_handler.update_experiment(
+            experiment_id=experiment_id,
+            parameters=training_parameters,
+            training_metrics=testing_metrics["training"],
+            testing_metrics=testing_metrics["test"]
+        )
+        logging.info(f"实验 ID {experiment_id} 更新成功。")
+    else:
+        # 插入新的实验数据
+        experiment_id = experiment_handler.insert_experiment_with_stocks(
+            name=experiment_name,
+            notes=experiment_notes,
+            parameters=training_parameters,
+            training_metrics=testing_metrics["training"],
+            testing_metrics=testing_metrics["test"],
+            model_type="PortfolioOptimizationEnv",
+            architecture_layers="128,64",
+            architecture_activation="relu",
+            start_time=start_time,
+            end_time=end_time,
+            model_path=model_path
+        )
+    print(f"Experiment ID: {experiment_id}")
+    print(f"Model Path Exists: {os.path.exists(model_path)}")
 
-# else:
-#     logging.error("无法连接到数据库。")
+    if experiment_id and (not os.path.exists(model_path)):
+        print("111")
+        experiment_handler.create_table('experiment_stocks')
+        unique_stocks = df_portfolio_train['tic'].unique()
+        for stock_code in unique_stocks:
+            experiment_handler.insert_stock_code(experiment_id, stock_code)
+
+else:
+    logging.error("无法连接到数据库。")
 
 # 断开数据库连接
-# mysql_handler.disconnect()
+experiment_handler.disconnect()
 
 print(f"Assets in training data: {df_portfolio_train['tic'].unique()}")
 print(f"Assets in testing data: {df_portfolio_2024['tic'].unique()}")

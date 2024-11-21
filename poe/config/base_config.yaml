@@ -1,0 +1,106 @@
+# config/base_config.yaml
+
+DATA_PATH: '/Users/pu17/Documents/stock/FinRL/examples/df_portfolio.csv'
+
+TOP_BRL:
+  - '000001.SS'
+  - '399001.SZ'
+  - '603000.SS'
+  - '000035.SZ'
+  - '002261.SZ'
+  - '000938.SZ'
+  - '600547.SS'
+  - '600756.SS'
+  - '601899.SS'
+  - '601988.SS'
+
+FEATURES:
+  - 'open'
+  - 'high'
+  - 'low'
+  - 'close'
+  - 'volume'
+  - 'day'
+  - 'macd'
+  - 'boll_ub'
+  - 'boll_lb'
+  - 'rsi_30'
+  - 'cci_30'
+  - 'dx_30'
+  - 'close_30_sma'
+  - 'close_60_sma'
+  - 'up_down_ratio'
+  - 'market_breadth'
+  - 'net_sm_amount'
+  - 'net_md_amount'
+  - 'net_lg_amount'
+  - 'net_elg_amount'
+  - 'net_sm_pct'
+  - 'net_md_pct'
+  - 'net_lg_pct'
+  - 'net_elg_pct'
+  - 'spring_festival_pre_holiday'
+  - 'spring_festival_post_holiday'
+  - 'labor_day_pre_holiday'
+  - 'labor_day_post_holiday'
+  - 'national_day_pre_holiday'
+  - 'national_day_post_holiday'
+  - 'dayofmonth'
+  - 'dayofyear'
+
+TRAINING_PARAMS:
+  time_window: 10
+  initial_features: 34
+  features: !!python/tuple
+    - 'open'
+    - 'high'
+    - 'low'
+    - 'close'
+    - 'volume'
+    - 'day'
+    - 'macd'
+    - 'boll_ub'
+    - 'boll_lb'
+    - 'rsi_30'
+    - 'cci_30'
+    - 'dx_30'
+    - 'close_30_sma'
+    - 'close_60_sma'
+    - 'up_down_ratio'
+    - 'market_breadth'
+    - 'net_sm_amount'
+    - 'net_md_amount'
+    - 'net_lg_amount'
+    - 'net_elg_amount'
+    - 'net_sm_pct'
+    - 'net_md_pct'
+    - 'net_lg_pct'
+    - 'net_elg_pct'
+    - 'spring_festival_pre_holiday'
+    - 'spring_festival_post_holiday'
+    - 'labor_day_pre_holiday'
+    - 'labor_day_post_holiday'
+    - 'national_day_pre_holiday'
+    - 'national_day_post_holiday'
+    - 'dayofmonth'
+    - 'dayofyear'
+  initial_amount: 100000
+  comission_fee_pct: 0.0025
+  model_kwargs:
+    lr: 0.001
+    policy: 'EIIE'
+  policy_kwargs: {}
+  episodes: 10
+  portfolio_size: 10
+
+MODEL_DIR: '/Users/pu17/Documents/stock/FinRL/examples/models/'
+
+LOG_FILE: 'experiment.log'
+LOG_LEVEL: 'INFO'
+
+DATABASE:
+  host: 'localhost'
+  user: 'your_user'
+  password: 'your_password'
+  database: 'your_database'
+
