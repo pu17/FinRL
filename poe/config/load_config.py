@@ -1,32 +1,19 @@
-import yaml
+# config/load_config.py
+
+import importlib.util
 import os
 
 def load_config(experiment_name):
-    """
-    加载基础配置并合并实验特定配置。
-
-    参数:
-        experiment_name (str): 实验名称，对应 config/experiments/ 下的 YAML 配置文件名称。
-
-    返回:
-        dict: 合并后的配置字典。
-    """
-    base_config_path = os.path.join(os.path.dirname(__file__), 'base_config.yaml')
-    experiment_config_path = os.path.join(os.path.dirname(__file__), 'experiments', f'{experiment_name}.yaml')
+    config_dir = os.path.join(os.path.dirname(__file__), 'experiments')
+    config_path = os.path.join(config_dir, f"{experiment_name}.py")
     
-    with open(base_config_path, 'r') as f:
-        base_config = yaml.safe_load(f)
+    if not os.path.exists(config_path):
+        raise FileNotFoundError(f"配置文件未找到：{config_path}")
     
-    if os.path.exists(experiment_config_path):
-        with open(experiment_config_path, 'r') as f:
-            experiment_config = yaml.safe_load(f)
-        # 合并基础配置和实验特定配置
-        for key, value in experiment_config.items():
-            if isinstance(value, dict) and key in base_config:
-                base_config[key].update(value)
-            else:
-                base_config[key] = value
-    else:
-        raise FileNotFoundError(f"实验配置文件 {experiment_config_path} 不存在。")
+    spec = importlib.util.spec_from_file_location(experiment_name, config_path)
+    config_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(config_module)
     
-    return base_config
+    config = {attr: getattr(config_module, attr) for attr in dir(config_module) if not attr.startswith("__")}
+    
+    return config

@@ -192,6 +192,8 @@ if experiment_handler.connection and experiment_handler.connection.is_connected(
             existing_experiment = experiment_handler.get_experiment_by_id(experiment_id)
             if existing_experiment:
                 # 从 parameters 中提取 episodes
+                # 加载保存的模型参数（如果有）
+                model.train_policy.load_state_dict(torch.load(model_path))
                 parameters = json.loads(existing_experiment['parameters'])
                 existing_episodes = parameters.get('episodes', 0)
                 episodes += existing_episodes  # 更新 episodes

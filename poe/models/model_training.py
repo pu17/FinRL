@@ -2,7 +2,7 @@ import logging
 from finrl.agents.portfolio_optimization.models import DRLAgent
 from poe.utils.utils import capture_output
 
-def train_model(model, environment, episodes, policy_name):
+def train_model(model, episodes, policy_name):
     """
     训练模型并返回训练输出。
     
@@ -16,6 +16,6 @@ def train_model(model, environment, episodes, policy_name):
         str: 捕获的训练输出。
     """
     logging.info(f"开始训练模型: {policy_name}，轮数: {episodes}")
-    training_output = capture_output(DRLAgent.train_model, model, env=environment, episodes=episodes)
+    training_output = capture_output(DRLAgent.train_model, model,episodes=episodes)
     logging.info("模型训练完成。")
     return training_output

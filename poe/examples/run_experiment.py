@@ -1,4 +1,6 @@
 import os
+import sys
+import pandas as pd
 import logging
 import json
 from datetime import datetime
@@ -10,21 +12,45 @@ from poe.utils.utils import convert_to_float
 from poe.data.data_loader import load_data, get_unique_stocks
 from poe.models.model_training import train_model
 from poe.models.validation import validate_model, parse_metrics
-from feature.experimenthandler import ExperimentHandler
+from finrl.agents.portfolio_optimization.models import DRLAgent
 from finrl.meta.env_portfolio_optimization.env_portfolio_optimization import PortfolioOptimizationEnv
 from finrl.agents.portfolio_optimization.architectures import EIIE, GPM
 import torch
 
+from poe.config.base_config import BASE_PATH
+
+def create_experiment_directories(experiment_name):
+    data_dir = os.path.join(BASE_PATH, 'data', experiment_name)
+    model_dir = os.path.join(BASE_PATH, 'models', experiment_name)
+    log_dir = os.path.join(BASE_PATH, 'logs', experiment_name)
+    
+    os.makedirs(data_dir, exist_ok=True)
+    os.makedirs(model_dir, exist_ok=True)
+    os.makedirs(log_dir, exist_ok=True)
+    
+    return data_dir, model_dir, log_dir
+
 def main(experiment_name):
+    # 添加环境路径
+    DB_PATH = '/Users/pu17/Documents/stock/stock_price_prediction'
+    sys.path.append(DB_PATH)
+    from feature.experimenthandler import ExperimentHandler
+
     # 加载配置
     config = load_config(experiment_name)
-    
+
+    # 创建实验目录
+    data_dir, model_dir, log_dir = create_experiment_directories(experiment_name)
     # 设置日志
+    config['LOG_FILE'] = os.path.join(log_dir, 'experiment.log')
     setup_logger(config)
     logging.info(f"开始实验：{experiment_name}")
     
     # 加载数据
-    df_train, df_test = load_data(config)
+    df_train, df_test = load_data(data_dir)
+    if df_train.empty or df_test.empty:
+        logging.error("训练数据或测试数据为空，终止实验。")
+        return
     unique_stocks = get_unique_stocks(df_train)
     logging.info(f"训练数据中的股票代码: {unique_stocks}")
     logging.info(f"测试数据中的股票代码: {df_test['tic'].unique().tolist()}")
@@ -32,93 +58,133 @@ def main(experiment_name):
     # 初始化参数
     training_params = config['TRAINING_PARAMS']
     time_window = training_params["time_window"]
-    initial_features = training_params["initial_features"]
-    features = training_params["features"]
+    features = config['FEATURES']
+    initial_features = len(features)
+    training_params["policy_kwargs"]["initial_features"] = initial_features
     episodes = training_params["episodes"]
     policy_kwargs = training_params["policy_kwargs"]
     model_kwargs = training_params["model_kwargs"]
+    experiment_id = config['EXPERIMENT_INFO'].get('experiment_id')
     
-    policy_name = model_kwargs["policy"]
-    model_dir = config['MODEL_DIR']
-    if not os.path.exists(model_dir):
-        os.makedirs(model_dir)
-    model_path = os.path.join(
+    policy_name = model_kwargs.get("policy")
+    if not policy_name:
+        logging.error("未指定策略名称（policy）。")
+        return
+
+    base_model_path = os.path.join(
         model_dir,
-        f"policy_{policy_name}_{initial_features}_{time_window}.pt"
+        f"policy_{policy_name}_{initial_features}_{time_window}_{experiment_id}.pt"
+    )  
+
+    # 设置设备
+    device = 'cuda:0' if torch.cuda.is_available() else 'cpu'    
+
+    # 选择模型架构
+    if policy_name == "EIIE":
+        policy = EIIE(time_window=time_window, initial_features=initial_features, device=device)
+        model_kwargs['policy'] = EIIE
+    elif policy_name == "GPM":
+        policy = GPM(**model_kwargs)
+    else:
+        logging.error(f"未知的策略名称: {policy_name}")
+        return
+
+        # 创建训练环境
+    env = PortfolioOptimizationEnv(
+        df=df_train,
+        initial_amount=training_params["initial_amount"],
+        comission_fee_pct=training_params["comission_fee_pct"],
+        time_window=training_params["time_window"],
+        features=features,
+        normalize_df=None
     )
     
+    # 打印 model_kwargs 和 policy_kwargs 以供调试
+    print("model_kwargs:", model_kwargs)
+    print("policy_kwargs:", policy_kwargs)
+    
+    # 创建并训练模型
+    model = DRLAgent(env).get_model("pg", device, model_kwargs, policy_kwargs)
     # 实例化 ExperimentHandler
-    experiment_handler = ExperimentHandler(
-        host=config['DATABASE']['host'],
-        user=config['DATABASE']['user'],
-        password=config['DATABASE']['password'],
-        database=config['DATABASE']['database']
-    )
+    DB_PATH = '/Users/pu17/Documents/stock/stock_price_prediction'
+    # 添加环境路径
+    sys.path.append(DB_PATH)
+    from feature.experimenthandler import ExperimentHandler
+
+    # 实例化 ExperimentHandler
+    experiment_handler = ExperimentHandler()
     
     # 检查模型文件是否存在
-    if os.path.exists(model_path):
-        experiment_id = experiment_handler.get_experiment_id_by_model_path(model_path)
+    if os.path.exists(base_model_path):
+        experiment_id = experiment_handler.get_experiment_id_by_model_path(base_model_path)
         if experiment_id:
             existing_experiment = experiment_handler.get_experiment_by_id(experiment_id)
             if existing_experiment:
                 try:
+                    model.train_policy.load_state_dict(torch.load(base_model_path))
+
+                    # 定义模型参数路径
+                    policy_name = model_kwargs["policy"].__name__
+                    training_output = train_model(model, episodes, policy_name)
+                    
                     parameters = json.loads(existing_experiment['parameters'])
                     existing_episodes = parameters.get('episodes', 0)
-                    episodes += existing_episodes  # 更新 episodes
-                    # 更新模型路径后缀
-                    model_path = os.path.join(
-                        model_dir,
-                        f"policy_{policy_name}_{initial_features}_{time_window}_{experiment_id}.pt"
-                    )
+                    training_params["episodes"] += existing_episodes
                     logging.info(f"找到现有实验 ID: {experiment_id}，更新后的 episodes: {episodes}")
                 except json.JSONDecodeError as e:
                     logging.error(f"解析 parameters 时出错: {e}")
-                    existing_experiment = None
+                    experiment_id = None
             else:
-                experiment_id = None  # 未找到现有实验
+                experiment_id = None
         else:
-            experiment_id = None  # 未找到相关实验
+            experiment_id = None
     else:
-        experiment_id = None  # 模型文件不存在
+        experiment_id = None
+
+
     
-    # 创建训练环境
-    env = PortfolioOptimizationEnv(df=df_train, **training_params)
-    
-    # 选择模型架构
-    if policy_name == "EIIE":
-        model = EIIE(**model_kwargs)
-    elif policy_name == "GPM":
-        model = GPM(**model_kwargs)
-    else:
-        logging.error(f"未知的策略名称: {policy_name}")
-        return
-    
-    # 训练模型
-    training_output = train_model(model, env, episodes, policy_name)
+    # 保存模型路径
+    model_path = base_model_path
     
     # 验证模型
-    env_test = PortfolioOptimizationEnv(df_test, **training_params)
-    validation_output = validate_model(model, env_test, agent)
+    env_test = PortfolioOptimizationEnv(
+        df=df_test,
+        initial_amount=training_params["initial_amount"],
+        comission_fee_pct=training_params["comission_fee_pct"],
+        time_window=training_params["time_window"],
+        features=features,
+        normalize_df=None
+    )
+    validation_output = validate_model(model, env_test, policy)
     
     # 解析验证输出
-    test_metrics = {}  # 根据实际情况解析 validation_output
-    # 应根据具体的验证输出格式实现解析逻辑，例如：
-    # test_metrics = parse_metrics(validation_output, env, env_test, 'test')
+    test_metrics = parse_metrics(validation_output, env, env_test, 'test')
+    train_metrics = parse_metrics(training_output, env, env_test, 'training')
     
     # 准备存储数据
     training_parameters = training_params.copy()
     
+    print(training_output)
     # 转换 metrics 类型
     testing_metrics = convert_to_float({
-        "training": {},  # 根据需要解析 training_output
+        "training": train_metrics,
         "test": test_metrics
     })
     
-    # 格式化实验备注
-    experiment_notes = config['EXPERIMENT_INFO']['notes'].format(
-        num_assets=len(config['TRAINING_PARAMS']["portfolio_size"]), 
-        num_features=len(features)
+    # 更新实验备注
+    experiment_notes = config['EXPERIMENT_INFO'].get('notes', '').format(
+        num_assets=len(unique_stocks), 
+        num_features=initial_features
     )
+       # 选择模型架构
+    if policy_name == "EIIE":
+        policy = EIIE(time_window=time_window, initial_features=initial_features, device=device)
+        model_kwargs['policy'] = "EIIE"
+    elif policy_name == "GPM":
+        policy = GPM(**model_kwargs)
+    else:
+        logging.error(f"未知的策略名称: {policy_name}")
+        return
     
     # 记录训练结束时间
     end_time = datetime.now()
@@ -147,6 +213,7 @@ def main(experiment_name):
             end_time=end_time,
             model_path=model_path
         )
+        logging.info(f"插入新的实验数据，实验 ID: {experiment_id}")
     
     if experiment_id and (not os.path.exists(model_path)):
         # 如果创建了新的 experiment_id，插入相关股票代码
@@ -154,7 +221,7 @@ def main(experiment_name):
             experiment_handler.insert_stock_code(experiment_id, stock_code)
     
     # 保存模型
-    torch.save(model.state_dict(), model_path)
+    torch.save(model.train_policy.state_dict(), model_path)
     logging.info(f"模型已保存到 {model_path}")
     
     # 断开数据库连接
@@ -166,7 +233,7 @@ def main(experiment_name):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='运行指定的实验。')
-    parser.add_argument('--experiment', type=str, required=True, help='实验名称，对应 config/experiments/ 下的 YAML 配置文件名称。')
+    parser.add_argument('--experiment', type=str, required=True, help='实验名称，对应 config/experiments/ 下的 Python 配置文件名称（不需要后缀）。')
     args = parser.parse_args()
     
     main(args.experiment)

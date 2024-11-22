@@ -7,6 +7,7 @@ from __future__ import annotations
 import pandas as pd
 import tushare as ts
 from tqdm import tqdm
+import logging
 
 
 class TushareDownloader:
@@ -70,7 +71,13 @@ class TushareDownloader:
                 "trade_date": "date",
                 "vol": "volume"
             })
+
+            if temp_df.empty:
+                logging.warning("temp_df 为空，跳过此数据块。")
+                continue
+
             temp_df = temp_df[["date", "open", "high", "low", "close", "volume", "tic"]]
+
             # Concatenate data
             data_df = pd.concat([data_df, temp_df], axis=0, ignore_index=True)
 

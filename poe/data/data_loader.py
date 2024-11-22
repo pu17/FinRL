@@ -1,6 +1,7 @@
 import pandas as pd
+import os
 
-def load_data(config):
+def load_data(data_dir):
     """
     加载并划分数据集为训练集和测试集。
     
@@ -10,8 +11,9 @@ def load_data(config):
     返回:
         tuple: (df_train, df_test)
     """
-    DATA_PATH = config['DATA_PATH']
+    DATA_PATH = os.path.join(data_dir, 'df_portfolio.csv')
     df_portfolio = pd.read_csv(DATA_PATH)
+    
     
     df_train = df_portfolio[
         (df_portfolio["date"] >= "2018-01-01") & (df_portfolio["date"] < "2024-03-01")
