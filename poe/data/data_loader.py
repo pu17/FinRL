@@ -15,8 +15,7 @@ def load_data(data_dir, start_date, end_date, ticker_list):
     返回:
         tuple: (df_train, df_test)
     """
-    DATA_PATH = os.path.join(data_dir, 'df_portfolio.csv')
-    df_portfolio = pd.read_csv(DATA_PATH)
+    df_portfolio = pd.read_csv(data_dir)
 
     if end_date is None:
         end_date = datetime.today().strftime('%Y-%m-%d')
