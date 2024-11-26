@@ -1,5 +1,6 @@
 import pandas as pd
 import os
+from datetime import datetime
 
 def load_data(data_dir, start_date, end_date, ticker_list):
     """
@@ -16,6 +17,14 @@ def load_data(data_dir, start_date, end_date, ticker_list):
     """
     DATA_PATH = os.path.join(data_dir, 'df_portfolio.csv')
     df_portfolio = pd.read_csv(DATA_PATH)
+
+    if end_date is None:
+        end_date = datetime.today().strftime('%Y-%m-%d')
+    
+    # 确保日期格式为 '%Y-%m-%d'
+    start_date = start_date.strftime('%Y-%m-%d') if isinstance(start_date, datetime) else start_date
+    end_date = end_date.strftime('%Y-%m-%d') if isinstance(end_date, datetime) else end_date
+    
     
     # 根据日期和股票代码过滤数据
     df_filtered = df_portfolio[

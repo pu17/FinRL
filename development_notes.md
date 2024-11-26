@@ -1,5 +1,7 @@
    python poe/examples/run_experiment.py --experiment EIIE
 
+   git checkout learning -- poe/
+
 2024-11-25
 在训练过程中，如果需要可视化指标（如损失曲线、收益曲线等），可以使用 TensorBoard。为了在网站上展示 FinRL 的训练参数和表现，需收集多种数据类型，包括训练参数、性能指标、元数据等。确保数据的全面性、可视化、实时性和可扩展性，以提升用户体验和网站价值。
 
