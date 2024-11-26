@@ -2,7 +2,7 @@
 
 EXPERIMENT_INFO = {
     'experiment_id': 1,
-    'name': 'EIIE',
+    'name': 'EIIE 01',
     'notes': '训练 EIIE 模型进行投资组合优化，资产数量: {num_assets}，特征数量: {num_features}。'
 }
 
@@ -20,7 +20,8 @@ data_params = {
         '600756.SS',
         '601899.SS',
         '601988.SS'
-    ]
+    ],
+    'data_file_path': '/Users/pu17/Documents/stock/FinRL/poe/processed/data/EIIE/df_portfolio.csv'  # 新增的数据文件路径
 }
 
 FEATURES = [
@@ -71,7 +72,7 @@ TRAINING_PARAMS = {
         "time_window": 10,             # 使用变量形式
         "initial_features": len(FEATURES)       # 需要在代码中传入具体值
     },
-    'episodes': 100,
+    'episodes': 10,
     'portfolio_size': 10
 }
 

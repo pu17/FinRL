@@ -19,8 +19,8 @@ import torch
 
 from poe.config.base_config import BASE_PATH
 
-def create_experiment_directories(experiment_name):
-    data_dir = os.path.join(BASE_PATH, 'data', experiment_name)
+def create_experiment_directories(experiment_name,name):
+    data_dir = os.path.join(BASE_PATH, 'data', name)
     model_dir = os.path.join(BASE_PATH, 'models', experiment_name)
     log_dir = os.path.join(BASE_PATH, 'logs', experiment_name)
     
@@ -36,26 +36,7 @@ def main(experiment_name):
     sys.path.append(DB_PATH)
     from feature.experimenthandler import ExperimentHandler
 
-    # 加载配置
-    config = load_config(experiment_name)
-
-    # 创建实验目录
-    data_dir, model_dir, log_dir = create_experiment_directories(experiment_name)
-    # 设置日志
-    config['LOG_FILE'] = os.path.join(log_dir, 'experiment.log')
-    setup_logger(config)
-    logging.info(f"开始实验：{experiment_name}")
-    
-    # 加载数据
-    df_train, df_test = load_data(data_dir)
-    if df_train.empty or df_test.empty:
-        logging.error("训练数据或测试数据为空，终止实验。")
-        return
-    unique_stocks = get_unique_stocks(df_train)
-    logging.info(f"训练数据中的股票代码: {unique_stocks}")
-    logging.info(f"测试数据中的股票代码: {df_test['tic'].unique().tolist()}")
-    
-    # 初始化参数
+        # 初始化参数
     training_params = config['TRAINING_PARAMS']
     time_window = training_params["time_window"]
     features = config['FEATURES']
@@ -65,6 +46,33 @@ def main(experiment_name):
     policy_kwargs = training_params["policy_kwargs"]
     model_kwargs = training_params["model_kwargs"]
     experiment_id = config['EXPERIMENT_INFO'].get('experiment_id')
+    name = config['EXPERIMENT_INFO'].get('name')
+
+    # 加载配置
+    config = load_config(experiment_name)
+    # 创建实验目录
+    data_dir, model_dir, log_dir = create_experiment_directories(experiment_name,name)
+    # 设置日志
+    config['LOG_FILE'] = os.path.join(log_dir, 'experiment.log')
+    setup_logger(config)
+    logging.info(f"开始实验：{experiment_name}")
+    
+    print(config['start_date'],config['end_date'],config['ticker_list'])
+    # 加载数据
+    df_train, df_test = load_data(
+        config['data_file_path'],
+        start_date=config['start_date'],
+        end_date=config['end_date'],
+        ticker_list=config['ticker_list']
+    )
+    if df_train.empty or df_test.empty:
+        logging.error("训练数据或测试数据为空，终止实验。")
+        return
+    unique_stocks = get_unique_stocks(df_train)
+    logging.info(f"训练数据中的股票代码: {unique_stocks}")
+    logging.info(f"测试数据中的股票代码: {df_test['tic'].unique().tolist()}")
+    
+
     
     policy_name = model_kwargs.get("policy")
     if not policy_name:

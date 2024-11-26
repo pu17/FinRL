@@ -34,7 +34,12 @@ def collect_data(config):
     start_date = data_params['start_date'].strftime('%Y%m%d') if isinstance(data_params['start_date'], datetime) else data_params['start_date']
     end_date = end_date.strftime('%Y%m%d') if isinstance(end_date, datetime) else end_date
     
-    portfolio_raw_df = pd.read_csv('/Users/pu17/Documents/stock/FinRL/examples/df_portfolio.csv')
+    print(start_date,end_date)
+    portfolio_raw_df = TushareDownloader(
+        start_date=start_date,
+        end_date=end_date,
+        ticker_list=data_params['ticker_list']
+    ).fetch_data()
     
     if portfolio_raw_df.empty:
         logging.error("收集到的 portfolio_raw_df 为空。")
@@ -103,7 +108,7 @@ def main(experiment):
     
     # 创建实验目录
     data_dir, model_dir, log_dir = create_experiment_directories(
-        BASE_PATH, experiment
+        experiment
     )
     
     # 设置日志
