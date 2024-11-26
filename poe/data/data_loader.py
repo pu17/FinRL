@@ -1,0 +1,43 @@
+import pandas as pd
+import os
+
+def load_data(data_dir, start_date, end_date, ticker_list):
+    """
+    加载并划分数据集为训练集和测试集。
+    
+    参数:
+        data_dir (str): 数据目录。
+        start_date (str): 开始日期。
+        end_date (str): 结束日期。
+        ticker_list (list): 股票代码列表。
+    
+    返回:
+        tuple: (df_train, df_test)
+    """
+    DATA_PATH = os.path.join(data_dir, 'df_portfolio.csv')
+    df_portfolio = pd.read_csv(DATA_PATH)
+    
+    # 根据日期和股票代码过滤数据
+    df_filtered = df_portfolio[
+        (df_portfolio["date"] >= start_date) & 
+        (df_portfolio["date"] <= end_date) & 
+        (df_portfolio["tic"].isin(ticker_list))
+    ]
+    
+    # 划分训练集和测试集
+    df_train = df_filtered[df_filtered["date"] < "2024-03-01"]
+    df_test = df_filtered[df_filtered["date"] >= "2024-03-01"]
+    
+    return df_train, df_test
+
+def get_unique_stocks(df_train):
+    """
+    获取训练数据中的唯一股票代码。
+    
+    参数:
+        df_train (pd.DataFrame): 训练数据。
+    
+    返回:
+        list: 唯一股票代码列表。
+    """
+    return df_train['tic'].unique().tolist()
