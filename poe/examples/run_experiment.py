@@ -35,10 +35,14 @@ def main(experiment_name):
     DB_PATH = '/Users/pu17/Documents/stock/stock_price_prediction'
     sys.path.append(DB_PATH)
     from feature.experimenthandler import ExperimentHandler
+  # 加载配置
+    config = load_config(experiment_name)
 
         # 初始化参数
     training_params = config['TRAINING_PARAMS']
+
     time_window = training_params["time_window"]
+    data_params= config['data_params']
     features = config['FEATURES']
     initial_features = len(features)
     training_params["policy_kwargs"]["initial_features"] = initial_features
@@ -48,8 +52,7 @@ def main(experiment_name):
     experiment_id = config['EXPERIMENT_INFO'].get('experiment_id')
     name = config['EXPERIMENT_INFO'].get('name')
 
-    # 加载配置
-    config = load_config(experiment_name)
+  
     # 创建实验目录
     data_dir, model_dir, log_dir = create_experiment_directories(experiment_name,name)
     # 设置日志
@@ -57,13 +60,13 @@ def main(experiment_name):
     setup_logger(config)
     logging.info(f"开始实验：{experiment_name}")
     
-    print(config['start_date'],config['end_date'],config['ticker_list'])
+    print(data_params['start_date'],data_params['end_date'],data_params['ticker_list'])
     # 加载数据
     df_train, df_test = load_data(
-        config['data_file_path'],
-        start_date=config['start_date'],
-        end_date=config['end_date'],
-        ticker_list=config['ticker_list']
+        data_params['data_file_path'],
+        start_date=data_params['start_date'],
+        end_date=data_params['end_date'],
+        ticker_list=data_params['ticker_list']
     )
     if df_train.empty or df_test.empty:
         logging.error("训练数据或测试数据为空，终止实验。")
