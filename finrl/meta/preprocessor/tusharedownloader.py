@@ -7,6 +7,7 @@ from __future__ import annotations
 import pandas as pd
 import tushare as ts
 from tqdm import tqdm
+import logging
 
 
 class TushareDownloader:
@@ -44,56 +45,62 @@ class TushareDownloader:
         self.start_date = start_date
         self.end_date = end_date
         self.ticker_list = ticker_list
+        self.api_token = '4bccdd4d130c436773beef521fbecc05ab0079026122c370908f3c93'
+        ts.set_token(self.api_token)
+        self.pro = ts.pro_api()
 
     def fetch_data(self) -> pd.DataFrame:
-        """Fetches data from Alpaca
-        Parameters
-        ----------
+        """Fetches data from Tushare
         Returns
         -------
         `pd.DataFrame`
-            7 columns: A date, open, high, low, close, volume and tick symbol
-            for the specified stock ticker
+            Columns: date, open, high, low, close, volume, tic
         """
         # Download and save the data in a pandas DataFrame:
         data_df = pd.DataFrame()
         for tic in tqdm(self.ticker_list, total=len(self.ticker_list)):
-            temp_df = ts.get_hist_data(
-                tic[0:6], start=self.start_date, end=self.end_date
-            )
-            temp_df["tic"] = tic[0:6]
-            # data_df = data_df.append(temp_df)
+            # 获取 ts_code 的资金流数据
+            if tic.endswith('.SS'):
+                tic = tic.replace('.SS', '.SH')
+
+            temp_df = self.pro.daily(ts_code=tic, start_date=self.start_date, end_date=self.end_date)
+            print(temp_df.head())
+            temp_df["tic"] = tic
+            # Select and rename necessary columns
+            temp_df = temp_df.rename(columns={
+                "trade_date": "date",
+                "vol": "volume"
+            })
+
+            if temp_df.empty:
+                logging.warning(f"temp_df 为空，跳过此数据块。股票代码: {tic}")
+                continue
+
+            temp_df = temp_df[["date", "open", "high", "low", "close", "volume", "tic"]]
+
+            # Concatenate data
             data_df = pd.concat([data_df, temp_df], axis=0, ignore_index=True)
 
-        data_df = data_df.reset_index(level="date")
+        # Convert date to datetime and format it as YYYY-MM-DD
+        data_df["date"] = pd.to_datetime(data_df["date"], format='%Y%m%d')
+        data_df["date"] = data_df["date"].dt.strftime("%Y-%m-%d")
 
-        # create day of the week column (monday = 0)
-        data_df = data_df.drop(
-            [
-                "price_change",
-                "p_change",
-                "ma5",
-                "ma10",
-                "ma20",
-                "v_ma5",
-                "v_ma10",
-                "v_ma20",
-            ],
-            1,
-        )
+        # Sort data
+        data_df = data_df.sort_values(by=["date", "tic"]).reset_index(drop=True)
+
+        # Create day of the week column (Monday = 0)
         data_df["day"] = pd.to_datetime(data_df["date"]).dt.dayofweek
+
+        # Drop missing data
+        data_df = data_df.dropna()
+
         # rank desc
         data_df = data_df.sort_index(axis=0, ascending=False)
         # convert date to standard string format, easy to filter
-        data_df["date"] = pd.to_datetime(data_df["date"])
-        data_df["date"] = data_df.date.apply(lambda x: x.strftime("%Y-%m-%d"))
-        # drop missing data
-        data_df = data_df.dropna()
-        data_df = data_df.reset_index(drop=True)
+
         print("Shape of DataFrame: ", data_df.shape)
-        # print("Display DataFrame: ", data_df.head())
-        print(data_df)
-        data_df = data_df.sort_values(by=["date", "tic"]).reset_index(drop=True)
+        print(data_df.head())
+
         return data_df
 
     def select_equal_rows_stock(self, df):
