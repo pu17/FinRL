@@ -2,7 +2,7 @@
 
 EXPERIMENT_INFO = {
     'experiment_id': 4,
-    'name': 'EIIE',
+    'name': 'EIIE five feature',
     'notes': '训练 EIIE 模型进行投资组合优化，资产数量: {num_assets}，特征数量: {num_features}。'
 }
 

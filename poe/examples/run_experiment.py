@@ -110,10 +110,6 @@ def main(experiment_name):
         normalize_df=None
     )
     
-    # 打印 model_kwargs 和 policy_kwargs 以供调试
-    print("model_kwargs:", model_kwargs)
-    print("policy_kwargs:", policy_kwargs)
-    
     # 创建并训练模型
     model = DRLAgent(env).get_model("pg", device, model_kwargs, policy_kwargs)
     # 实例化 ExperimentHandler
@@ -175,7 +171,6 @@ def main(experiment_name):
     # 准备存储数据
     training_parameters = training_params.copy()
     
-    print(training_output)
     # 转换 metrics 类型
     testing_metrics = convert_to_float({
         "training": train_metrics,
@@ -206,7 +201,8 @@ def main(experiment_name):
             experiment_id=experiment_id,
             parameters=training_parameters,
             training_metrics=testing_metrics["training"],
-            testing_metrics=testing_metrics["test"]
+            testing_metrics=testing_metrics["test"],
+            end_time=end_time
         )
         logging.info(f"实验 ID {experiment_id} 更新成功。")
     else:

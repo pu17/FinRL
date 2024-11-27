@@ -24,13 +24,13 @@ def load_data(data_dir, start_date, end_date, ticker_list):
     start_date = start_date.strftime('%Y-%m-%d') if isinstance(start_date, datetime) else start_date
     end_date = end_date.strftime('%Y-%m-%d') if isinstance(end_date, datetime) else end_date
     
-    
-    # 根据日期和股票代码过滤数据
-    df_filtered = df_portfolio[
-        (df_portfolio["date"] >= start_date) & 
-        (df_portfolio["date"] <= end_date) & 
-        (df_portfolio["tic"].isin(ticker_list))
-    ]
+    print(start_date,end_date)
+    # # 根据日期和股票代码过滤数据
+    df_filtered = df_portfolio
+        # (df_portfolio["date"] >= start_date) & 
+    #     (df_portfolio["date"] <= end_date) & 
+    #     (df_portfolio["tic"].isin(ticker_list))
+    # ]
     
     # 划分训练集和测试集
     df_train = df_filtered[df_filtered["date"] < "2024-03-01"]
