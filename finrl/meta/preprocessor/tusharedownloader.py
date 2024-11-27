@@ -73,7 +73,7 @@ class TushareDownloader:
             })
 
             if temp_df.empty:
-                logging.warning("temp_df 为空，跳过此数据块。")
+                logging.warning(f"temp_df 为空，跳过此数据块。股票代码: {tic}")
                 continue
 
             temp_df = temp_df[["date", "open", "high", "low", "close", "volume", "tic"]]
