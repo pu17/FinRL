@@ -1,21 +1,17 @@
 # config/experiments/EIIE.py
 
 EXPERIMENT_INFO = {
-    'experiment_id': 4,
-    'name': 'EIIE',
+    'experiment_id': 5,
+    'name': 'EIIE 002',
     'notes': '训练 EIIE 模型进行投资组合优化，资产数量: {num_assets}，特征数量: {num_features}。'
 }
 
 data_params = {
-    'start_date': '20150101',  # 数据收集的开始日期
+    'start_date': '20181001',  # 数据收集的开始日期
     'end_date': None,          # 数据收集的结束日期，None 表示使用今天的日期
     'ticker_list': [           # 股票代码列表
-        '000001.SS',
-        '399001.SZ',
         '603000.SS',
-        '000035.SZ',
         '002261.SZ',
-        '000938.SZ',
         '600547.SS',
         '600756.SS',
         '601899.SS',
@@ -72,7 +68,7 @@ TRAINING_PARAMS = {
         "time_window": 10,             # 使用变量形式
         "initial_features": len(FEATURES)       # 需要在代码中传入具体值
     },
-    'episodes': 10,
+    'episodes': 100,
     'portfolio_size': 10
 }
 

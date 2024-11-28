@@ -34,7 +34,7 @@ def collect_data(config):
     start_date = data_params['start_date'].strftime('%Y%m%d') if isinstance(data_params['start_date'], datetime) else data_params['start_date']
     end_date = end_date.strftime('%Y%m%d') if isinstance(end_date, datetime) else end_date
     
-    print(start_date,end_date)
+    print(start_date, end_date)
     portfolio_raw_df = TushareDownloader(
         start_date=start_date,
         end_date=end_date,
@@ -50,11 +50,16 @@ def collect_data(config):
     logging.info(f"DataFrame 中的最大日期: {max_date}")
     logging.info(f"DataFrame 的形状: {portfolio_raw_df.shape}")
     
+    # 打印剩余的 tic 数量
+    unique_tics = portfolio_raw_df['tic'].unique()
+    logging.info(f"收集数据后剩余的 tic 数量: {len(unique_tics)}")
+    
     logging.info("数据收集完成。")
     return portfolio_raw_df
 
 def preprocess_data(portfolio_raw_df):
     logging.info("开始数据预处理。")
+    
     from finrl.config import INDICATORS
     fe = FeatureEngineer(
         use_technical_indicator=True,
@@ -65,6 +70,11 @@ def preprocess_data(portfolio_raw_df):
     )
     processed = fe.preprocess_data(portfolio_raw_df)
     logging.info("数据预处理完成。")
+    
+    # 打印剩余的 tic 数量
+    unique_tics = processed['tic'].unique()
+    logging.info(f"数据预处理后剩余的 tic 数量: {len(unique_tics)}")
+    
     return processed
 
 def custom_preprocess(processed):
@@ -73,6 +83,11 @@ def custom_preprocess(processed):
     ch_fe = ChFeatureEngineer()
     portfolio_processed = ch_fe.preprocess_data(processed)
     logging.info("自定义特征工程完成。")
+    
+    # 打印剩余的 tic 数量
+    unique_tics = portfolio_processed['tic'].unique()
+    logging.info(f"自定义特征工程后剩余的 tic 数量: {len(unique_tics)}")
+    
     return portfolio_processed
 
 def fill_missing(portfolio_processed):
@@ -84,6 +99,11 @@ def fill_missing(portfolio_processed):
     
     logging.info("缺失值填充后：")
     logging.info(portfolio_filled.isnull().sum())
+    
+    # 打印剩余的 tic 数量
+    unique_tics = portfolio_filled['tic'].unique()
+    logging.info(f"填充缺失值后剩余的 tic 数量: {len(unique_tics)}")
+    
     return portfolio_filled
 
 def normalize(portfolio_filled):
@@ -91,6 +111,11 @@ def normalize(portfolio_filled):
     portfolio_norm = GroupByScaler(by="tic", scaler=MaxAbsScaler).fit_transform(portfolio_filled)
     portfolio_norm['date'] = portfolio_norm['date'].astype(str)
     logging.info("数据归一化完成。")
+    
+    # 打印剩余的 tic 数量
+    unique_tics = portfolio_norm['tic'].unique()
+    logging.info(f"数据归一化后剩余的 tic 数量: {len(unique_tics)}")
+    
     return portfolio_norm
 
 def save(portfolio_norm, output_path):

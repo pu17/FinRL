@@ -1,3 +1,8 @@
+ 2024-11-28
+ 为什么少了很多  
+ clean_data 方法
+ 必须日期一致，不然就给你删掉
+   
    load_data 这里为怎么样
    
    python poe/examples/run_experiment.py --experiment EIIE

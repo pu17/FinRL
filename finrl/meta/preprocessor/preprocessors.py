@@ -182,9 +182,39 @@ class FeatureEngineer:
         df = data.copy()
         df = df.sort_values(["date", "tic"], ignore_index=True)
         df.index = df.date.factorize()[0]
+
+        # 打印原始股票代码
+        original_tics = df['tic'].unique()
+        print(f"原始股票代码数量: {len(original_tics)}")
+        print(f"原始股票代码: {original_tics}")
+        
         merged_closes = df.pivot_table(index="date", columns="tic", values="close")
+
+
+
+        # 打印每个股票代码的缺失情况
+        missing_info = merged_closes.isna().mean().sort_values(ascending=False)
+        for tic, missing_pct in missing_info.items():
+            if missing_pct > 0:
+                print(f"��票代码 {tic} 缺失率: {missing_pct:.2%}")
+
+        # 打印具体缺失的日期和股票代码
+        missing_details = merged_closes.isna()
+        for tic in merged_closes.columns:
+            missing_dates = merged_closes.index[missing_details[tic]].tolist()
+            if missing_dates:
+                print(f"股票代码 {tic} 缺失的日期: {missing_dates}")
+
+        tics_with_na = merged_closes.columns[merged_closes.isna().any()].tolist()
+        print(f"包含缺失值的股票代码: {tics_with_na}")
+        
+        #注意这一句是我个人添加的
+        merged_closes = merged_closes.ffill().bfill()
+
         merged_closes = merged_closes.dropna(axis=1)
+
         tics = merged_closes.columns
+
         df = df[df.tic.isin(tics)]
         # df = data.copy()
         # list_ticker = df["tic"].unique().tolist()

@@ -20,15 +20,13 @@ import torch
 from poe.config.base_config import BASE_PATH
 
 def create_experiment_directories(experiment_name,name):
-    data_dir = os.path.join(BASE_PATH, 'data', name)
     model_dir = os.path.join(BASE_PATH, 'models', experiment_name)
     log_dir = os.path.join(BASE_PATH, 'logs', experiment_name)
     
-    os.makedirs(data_dir, exist_ok=True)
     os.makedirs(model_dir, exist_ok=True)
     os.makedirs(log_dir, exist_ok=True)
     
-    return data_dir, model_dir, log_dir
+    return model_dir, log_dir
 
 def main(experiment_name):
     # 添加环境路径
@@ -54,7 +52,7 @@ def main(experiment_name):
 
   
     # 创建实验目录
-    data_dir, model_dir, log_dir = create_experiment_directories(experiment_name,name)
+    model_dir, log_dir = create_experiment_directories(experiment_name,name)
     # 设置日志
     config['LOG_FILE'] = os.path.join(log_dir, 'experiment.log')
     setup_logger(config)
@@ -132,21 +130,30 @@ def main(experiment_name):
 
                     # 定义模型参数路径
                     policy_name = model_kwargs["policy"].__name__
+
+                    # 训练模型
                     training_output = train_model(model, episodes, policy_name)
-                    
+
+                    # 更新参数
                     parameters = json.loads(existing_experiment['parameters'])
                     existing_episodes = parameters.get('episodes', 0)
                     training_params["episodes"] += existing_episodes
-                    logging.info(f"找到现有实验 ID: {experiment_id}，更新后的 episodes: {episodes}")
+                    logging.info(f"找到现有实验 ID: {experiment_id}，更新后的 episodes: {training_params['episodes']}")
                 except json.JSONDecodeError as e:
                     logging.error(f"解析 parameters 时出错: {e}")
                     experiment_id = None
             else:
                 experiment_id = None
+                # 训练模型
+                training_output = train_model(model, episodes, policy_name)
         else:
             experiment_id = None
+            # 训练模型
+            training_output = train_model(model, episodes, policy_name)
     else:
         experiment_id = None
+        # 训练模型
+        training_output = train_model(model, episodes, policy_name)
 
 
     
