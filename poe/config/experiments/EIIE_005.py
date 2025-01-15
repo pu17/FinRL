@@ -1,13 +1,13 @@
 # config/experiments/EIIE.py
 
 EXPERIMENT_INFO = {
-    'experiment_id': 8,
-    'name': 'EIIE 004',
+    'experiment_id': 9,
+    'name': 'EIIE 005',
     'notes': '训练 EIIE 模型进行投资组合优化，资产数量: {num_assets}，特征数量: {num_features}。'
 }
 
 data_params = {
-    'start_date': '20181001',  # 数据收集的开始日期
+    'start_date': '20200101',  # 数据收集的开始日期
     'end_date': None,          # 数据收集的结束日期，None 表示使用今天的日期
     'ticker_list': [           # 股票代码列表
         '603000.SS',

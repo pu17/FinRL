@@ -16,7 +16,6 @@ def load_data(data_dir, start_date, end_date, ticker_list):
         tuple: (df_train, df_test)
     """
     df_portfolio = pd.read_csv(data_dir)
-    print(data_dir)
 
     if end_date is None:
         end_date = datetime.today().strftime('%Y-%m-%d')
@@ -25,7 +24,6 @@ def load_data(data_dir, start_date, end_date, ticker_list):
     start_date = datetime.strptime(start_date, '%Y%m%d').strftime('%Y-%m-%d') if isinstance(start_date, str) else start_date
     end_date = end_date.strftime('%Y-%m-%d') if isinstance(end_date, datetime) else end_date
     
-    print("ticker_list:", ticker_list)
     ticker_list = [tic.replace('.SS', '.SH') if tic.endswith('.SS') else tic for tic in ticker_list]
     
     # 根据日期和股票代码过滤数据
@@ -34,19 +32,7 @@ def load_data(data_dir, start_date, end_date, ticker_list):
         (df_portfolio["date"] <= end_date) & 
         (df_portfolio["tic"].isin(ticker_list))
     ]
-    print("过滤后:", df_filtered["tic"].unique())
-
-    # 打印缺失值信息
-    missing_info = df_portfolio.isna().mean().sort_values(ascending=False)
-    for column, missing_pct in missing_info.items():
-        if missing_pct > 0:
-            print(f"列 {column} 缺失率: {missing_pct:.2%}")
-
-    # 打印具体缺失的日期和股票代码
-    for column in df_portfolio.columns:
-        if df_portfolio[column].isna().any():
-            missing_dates = df_portfolio['date'][df_portfolio[column].isna()].unique().tolist()
-            print(f"列 {column} 缺失的日期: {missing_dates}")
+    print("过滤后后:", df_filtered["tic"].unique())
 
     # 划分训练集和测试集
     df_train = df_filtered[df_filtered["date"] < "2024-03-01"]

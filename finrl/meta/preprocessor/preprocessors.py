@@ -173,9 +173,8 @@ class FeatureEngineer:
 
     def clean_data(self, data):
         """
-        clean the raw data
-        deal with missing values
-        reasons: stocks could be delisted, not incorporated at the time step
+        清洗原始数据
+        处理缺失值
         :param data: (df) pandas dataframe
         :return: (df) pandas dataframe
         """
@@ -183,20 +182,28 @@ class FeatureEngineer:
         df = df.sort_values(["date", "tic"], ignore_index=True)
         df.index = df.date.factorize()[0]
 
-        # 打印原始股票代码
-        original_tics = df['tic'].unique()
-        print(f"原始股票代码数量: {len(original_tics)}")
-        print(f"原始股票代码: {original_tics}")
+        # 获取所有唯一的日期并排序，保持原始格式
+        unique_dates = df['date'].unique()
+        unique_dates_sorted = sorted(unique_dates)
         
+        # 创建透视表
         merged_closes = df.pivot_table(index="date", columns="tic", values="close")
 
+        # 使用所有唯一的日期作为基准日期范围
+        full_date_range = pd.Index(unique_dates_sorted)
+        print(f"基准日期范围从 {full_date_range.min()} 到 {full_date_range.max()}")
 
+        # 重新索引以确保所有日期都存在
+        merged_closes = merged_closes.reindex(full_date_range)
+
+        # 填充缺失值
+        merged_closes = merged_closes.ffill().bfill()
 
         # 打印每个股票代码的缺失情况
         missing_info = merged_closes.isna().mean().sort_values(ascending=False)
         for tic, missing_pct in missing_info.items():
             if missing_pct > 0:
-                print(f"��票代码 {tic} 缺失率: {missing_pct:.2%}")
+                print(f"股票代码 {tic} 缺失率: {missing_pct:.2%}")
 
         # 打印具体缺失的日期和股票代码
         missing_details = merged_closes.isna()
@@ -205,28 +212,58 @@ class FeatureEngineer:
             if missing_dates:
                 print(f"股票代码 {tic} 缺失的日期: {missing_dates}")
 
-        tics_with_na = merged_closes.columns[merged_closes.isna().any()].tolist()
-        print(f"包含缺失值的股票代码: {tics_with_na}")
-        
-        #注意这一句是我个人添加的
-        merged_closes = merged_closes.ffill().bfill()
-
+        # 删除仍然有缺失值的列
         merged_closes = merged_closes.dropna(axis=1)
 
         tics = merged_closes.columns
 
+        # 更新原始数据框以仅包含完整的股票代码
         df = df[df.tic.isin(tics)]
-        # df = data.copy()
-        # list_ticker = df["tic"].unique().tolist()
-        # only apply to daily level data, need to fix for minute level
-        # list_date = list(pd.date_range(df['date'].min(),df['date'].max()).astype(str))
-        # combination = list(itertools.product(list_date,list_ticker))
 
-        # df_full = pd.DataFrame(combination,columns=["date","tic"]).merge(df,on=["date","tic"],how="left")
-        # df_full = df_full[df_full['date'].isin(df['date'])]
-        # df_full = df_full.sort_values(['date','tic'])
-        # df_full = df_full.fillna(0)
-        return df
+        # 打印 merged_closes 的结构
+        print("merged_closes 的列名:", merged_closes.columns)
+        print("merged_closes 的索引名:", merged_closes.index.name)
+
+        # 确保 'date' 列存在
+        merged_closes = merged_closes.reset_index()
+        if 'date' not in merged_closes.columns:
+            merged_closes = merged_closes.rename(columns={'index': 'date'})
+
+        # 打印 reset_index 后的列名
+        print("reset_index 后的列名:", merged_closes.columns)
+
+        # 执行 melt 操作
+        df_filled = merged_closes.melt(
+            id_vars='date',
+            value_vars=merged_closes.columns.drop('date'),
+            var_name='tic',
+            value_name='close_filled'
+        )
+
+        # 合并填充后的 close 数据回原始数据框，保留其他列的数据
+        df_final = df_filled.merge(
+            df,
+            on=['date', 'tic'],
+            how='left',
+            suffixes=('_filled', '')
+        )
+
+        # 删除多余的原始 close 列（如果不需要，可以保留）
+        if 'close' in df_final.columns:
+            df_final.drop(columns=['close'], inplace=True)
+
+        # 重命名填充后的 close 列为 'close'
+        df_final.rename(columns={'close_filled': 'close'}, inplace=True)
+
+        # 最终校验每个 tic 的日期是否一致
+        for tic in tics:
+            tic_dates = df_final[df_final['tic'] == tic]['date'].unique()
+            if len(tic_dates) != len(full_date_range):
+                print(f"最终股票代码 {tic} 的日期不一致，日期数量: {len(tic_dates)}")
+            else:
+                print(f"最终股票代码 {tic} 的日期一致，日期数量: {len(tic_dates)}")
+
+        return df_final
 
     def add_technical_indicator(self, data):
         """

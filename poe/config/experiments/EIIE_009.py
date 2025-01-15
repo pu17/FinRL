@@ -2,7 +2,7 @@
 
 EXPERIMENT_INFO = {
     'experiment_id': 8,
-    'name': 'EIIE 004',
+    'name': 'EIIE 010',
     'notes': '训练 EIIE 模型进行投资组合优化，资产数量: {num_assets}，特征数量: {num_features}。'
 }
 
@@ -10,10 +10,6 @@ data_params = {
     'start_date': '20181001',  # 数据收集的开始日期
     'end_date': None,          # 数据收集的结束日期，None 表示使用今天的日期
     'ticker_list': [           # 股票代码列表
-        '603000.SS',
-        '601988.SS',
-        '603000.SS',
-        '000035.SZ',
         '002261.SZ',
         '000938.SZ',
         '600547.SS',
@@ -25,26 +21,21 @@ data_params = {
 }
 
 FEATURES = [
-    'open',
+   'open',
     'high',
     'low',
     'close',
     'volume',
-    'day',
     'up_down_ratio',
     'market_breadth',
+    'net_sm_amount',
+    'net_md_amount',
+    'net_lg_amount',
+    'net_elg_amount',
     'net_sm_pct',
     'net_md_pct',
     'net_lg_pct',
-    'net_elg_pct',
-    'spring_festival_pre_holiday',
-    'spring_festival_post_holiday',
-    'labor_day_pre_holiday',
-    'labor_day_post_holiday',
-    'national_day_pre_holiday',
-    'national_day_post_holiday',
-    'dayofmonth',
-    'dayofyear'
+    'net_elg_pct'
 ]
 
 TRAINING_PARAMS = {

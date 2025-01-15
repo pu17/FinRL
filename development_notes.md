@@ -1,3 +1,5 @@
+python poe/examples/run_all_experiments.py
+ 
  2024-11-28
  为什么少了很多  
  clean_data 方法

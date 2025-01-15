@@ -2,7 +2,7 @@
 
 EXPERIMENT_INFO = {
     'experiment_id': 8,
-    'name': 'EIIE 004',
+    'name': 'EIIE 010',
     'notes': '训练 EIIE 模型进行投资组合优化，资产数量: {num_assets}，特征数量: {num_features}。'
 }
 
@@ -25,18 +25,20 @@ data_params = {
 }
 
 FEATURES = [
-    'open',
+   'open',
     'high',
     'low',
     'close',
     'volume',
     'day',
-    'up_down_ratio',
-    'market_breadth',
-    'net_sm_pct',
-    'net_md_pct',
-    'net_lg_pct',
-    'net_elg_pct',
+    'macd',
+    'boll_ub',
+    'boll_lb',
+    'rsi_30',
+    'cci_30',
+    'dx_30',
+    'close_30_sma',
+    'close_60_sma',
     'spring_festival_pre_holiday',
     'spring_festival_post_holiday',
     'labor_day_pre_holiday',

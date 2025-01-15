@@ -1,7 +1,7 @@
 # config/experiments/EIIE.py
 
 EXPERIMENT_INFO = {
-    'experiment_id': 5,
+    'experiment_id': 6,
     'name': 'EIIE 002',
     'notes': '训练 EIIE 模型进行投资组合优化，资产数量: {num_assets}，特征数量: {num_features}。'
 }
