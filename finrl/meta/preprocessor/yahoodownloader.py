@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import pandas as pd
 import yfinance as yf
-
+from datetime import datetime
 
 class YahooDownloader:
     """Provides methods for retrieving daily stock data from
@@ -103,3 +103,128 @@ class YahooDownloader:
         select_stocks_list = list(names[equal_list])
         df = df[df.tic.isin(select_stocks_list)]
         return df
+
+"""Provides an example of how to fetch near-real-time data (1-minute) from Yahoo Finance."""
+
+
+
+
+class YahooRealtimeDownloader:
+    """
+    Provides methods for retrieving near-real-time (1-minute) stock data
+    from Yahoo Finance API, returning only the last available bar or
+    "one minute behind" the latest bar.
+
+    This is similar to YahooDownloader, but uses 'interval=1m' and
+    'period=1d' to fetch only today's 1-minute data, then selects
+    the desired row (for example, the second-to-last row).
+    """
+
+    def __init__(self, ticker_list: list):
+        """
+        Parameters
+        ----------
+        ticker_list: list
+            a list of stock tickers
+        """
+        # 在这个类中，我们不需要固定的 start_date, end_date
+        # 因为我们只用 period='1d' 来获取当日 1 分钟级别数据
+        self.ticker_list = ticker_list
+
+    def fetch_data(self, proxy=None, pick_second_to_last=True) -> pd.DataFrame:
+        """
+        Fetches near-real-time 1-minute data from Yahoo API for the current day,
+        and selects either the last row or the second-to-last row as "one minute behind".
+
+        Parameters
+        ----------
+        proxy: str, optional
+            Proxy to use (if needed), e.g. "http://xxx.xxx.xxx:8080"
+        pick_second_to_last: bool
+            If True, tries to pick the second-to-last row to mimic "1 minute behind" the very latest bar.
+            If there's only one row, it just uses that one.
+
+        Returns
+        -------
+        pd.DataFrame
+            1 or more rows of near-real-time data. Columns:
+             - date, open, high, low, close, volume, tic, day
+        """
+        data_df = pd.DataFrame()
+        num_failures = 0
+
+        # 按照 1 分钟周期下载当日数据
+        for tic in self.ticker_list:
+            # period='1d'：只抓取今天的 1 分钟数据
+            # interval='1m'：时间间隔是一分钟
+            temp_df = yf.download(
+                tickers=tic,
+                period='1d',
+                interval='1m',
+                proxy=proxy,
+                progress=False  # 不打印进度条
+            )
+
+            temp_df["tic"] = tic
+
+            if len(temp_df) > 0:
+                # 如果您想获取倒数第二条数据
+                if pick_second_to_last and len(temp_df) > 1:
+                    temp_df = temp_df.iloc[[-2]]  # 取倒数第二行
+                else:
+                    # 若只有一行 或 pick_second_to_last=False，则取最后一行
+                    temp_df = temp_df.iloc[[-1]]
+
+                data_df = pd.concat([data_df, temp_df], axis=0)
+            else:
+                num_failures += 1
+
+        if num_failures == len(self.ticker_list):
+            raise ValueError("No data is fetched. Possibly all tickers returned empty for today.")
+
+        # reset the index, we want to use incremental numbers (not datetime index)
+        data_df = data_df.reset_index()
+
+        # rename columns to maintain consistency with FinRL pipeline
+        # yfinance返回列: [Datetime, Open, High, Low, Close, Adj Close, Volume, tic]
+        # 我们希望列:      [date, open, high, low, close, adjcp, volume, tic]
+        try:
+            data_df.columns = [
+                "date",
+                "open",
+                "high",
+                "low",
+                "close",
+                "adjcp",
+                "volume",
+                "tic",
+            ]
+            # use adjusted close
+            data_df["close"] = data_df["adjcp"]
+            data_df = data_df.drop(labels="adjcp", axis=1)
+        except ValueError:
+            print("Columns might not match the expected format; please check yfinance returned columns.")
+
+        # create day of week column (Monday=0)
+        # 此时 data_df["date"] 仍然是 datetime 类型，可以直接 dayofweek
+        if pd.api.types.is_datetime64_any_dtype(data_df["date"]):
+            data_df["day"] = data_df["date"].dt.dayofweek
+            # 转换 date 为标准字符串
+            data_df["date"] = data_df["date"].dt.strftime("%Y-%m-%d %H:%M:%S")
+        else:
+            # 如果不是 datetime64，就说明已有字符串，需要先转为 datetime
+            data_df["date"] = pd.to_datetime(data_df["date"])
+            data_df["day"] = data_df["date"].dt.dayofweek
+            data_df["date"] = data_df["date"].dt.strftime("%Y-%m-%d %H:%M:%S")
+
+        data_df = data_df.dropna().reset_index(drop=True)
+
+        # 最后按照 date, tic 排序
+        data_df = data_df.sort_values(by=["date", "tic"]).reset_index(drop=True)
+
+        print("Shape of realtime DataFrame: ", data_df.shape)
+        print(data_df)
+        # 您可以在此处检查 data_df 的最后几行
+        # print(data_df.tail())
+
+        return data_df

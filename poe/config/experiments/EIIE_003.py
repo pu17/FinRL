@@ -10,12 +10,13 @@ data_params = {
     'start_date': '20161001',  # 数据收集的开始日期
     'end_date': None,          # 数据收集的结束日期，None 表示使用今天的日期
     'ticker_list': [           # 股票代码列表
-        '603000.SS',
-        '002261.SZ',
-        '600547.SS',
-        '600756.SS',
-        '601899.SS',
-        '601988.SS'
+        '600481.SS',
+        '002518.SZ',
+        '603063.SS',
+        '603119.SS',
+        '603319.SS',
+        '601988.SS',
+        '002640.SZ'
     ],
     'data_file_path': '/Users/pu17/Documents/stock/FinRL/poe/data/EIIE/df_portfolio.csv'  # 新增的数据文件路径
 }
