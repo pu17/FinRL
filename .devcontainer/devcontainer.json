@@ -1,0 +1,21 @@
+{
+  "name": "My Docker Dev",
+  "dockerFile": "../docker/Dockerfile",
+  "context": "..",
+  "extensions": [
+    "ms-python.python",
+    "ms-azuretools.vscode-docker",
+    "eamodio.gitlens",
+    "ms-toolsai.jupyter",
+    "MS-CEINTL.vscode-language-pack-zh-hans",
+    "ms-pyright.pyright",
+    "ms-python.black-formatter",
+    "2gua.rainbow-brackets",
+    "formulahendry.vscode-mysql",
+    "ms-toolsai.jupyter-keymap",
+    "ms-toolsai.jupyter-renderers",
+    "ms-toolsai.jupyter-workspace",
+    "ms-toolsai.vscode-ai-chat",
+    "ms-toolsai.vscode-ai-code-editor"
+  ]
+}
