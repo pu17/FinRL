@@ -1,21 +1,14 @@
 from __future__ import annotations
 
-from concurrent.futures import ProcessPoolExecutor
-from concurrent.futures import ThreadPoolExecutor
-
-import alpaca_trade_api as tradeapi
-import exchange_calendars as tc
 import numpy as np
 import pandas as pd
-import pytz
+import pandas_market_calendars as tc
 import shioaji as sj
 import talib
 from shioaji import Exchange
 from shioaji import TickSTKv1
-from stockstats import StockDataFrame as Sdf
-from talib import abstract
 
-from shioajidownloader import SinopacDownloader
+from finrl.meta.preprocessor.shioajidownloader import SinopacDownloader
 
 
 class SinopacProcessor:
@@ -264,13 +257,13 @@ class SinopacProcessor:
 
     def get_trading_days(self, start, end):
         xtai = tc.get_calendar("XTAI")
-        df = xtai.sessions_in_range(
-            pd.Timestamp(start).tz_localize(None), pd.Timestamp(end).tz_localize(None)
-        )
+        # df = xtai.sessions_in_range(
+        #     pd.Timestamp(start).tz_localize(None), pd.Timestamp(end).tz_localize(None)
+        # )
+        df = xtai.date_range_htf("1D", pd.Timestamp(start), pd.Timestamp(end))
         trading_days = []
         for day in df:
             trading_days.append(str(day)[:10])
-
         return trading_days
 
     def on_tick(self, exchange: Exchange, tick: TickSTKv1):

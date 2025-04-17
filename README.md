@@ -2,7 +2,7 @@
 <img align="center" width="30%" alt="image" src="https://github.com/AI4Finance-Foundation/FinGPT/assets/31713746/e0371951-1ce1-488e-aa25-0992dafcc139">
 </div>
 
-# FinRL: Financial Reinforcement Learning [![twitter][1.1]][1] [![facebook][1.2]][2] [![google+][1.3]][3] [![linkedin][1.4]][4]
+# FinRL®: Financial Reinforcement Learning [![twitter][1.1]][1] [![facebook][1.2]][2] [![google+][1.3]][3] [![linkedin][1.4]][4]
 
 [1.1]: http://www.tensorlet.org/wp-content/uploads/2021/01/button_twitter_22x22.png
 [1.2]: http://www.tensorlet.org/wp-content/uploads/2021/01/facebook-button_22x22.png
@@ -31,8 +31,6 @@
 
 [FinGPT](https://github.com/AI4Finance-Foundation/ChatGPT-for-FinTech): Open-source for open-finance! Revolutionize FinTech.
 
-Check out our latest competition: [ACM ICAIF 2023 FinRL Contest](https://finrl-contest.github.io/)
-
 
 [![](https://dcbadge.vercel.app/api/server/trsr8SXpW5)](https://discord.gg/trsr8SXpW5)
 
@@ -40,9 +38,10 @@ Check out our latest competition: [ACM ICAIF 2023 FinRL Contest](https://finrl-c
 
 
 
-**Financial reinforcement learning (FinRL)** ([Document website](https://finrl.readthedocs.io/en/latest/index.html)) is **the first open-source framework** for financial reinforcement learning. FinRL has evolved into an **ecosystem**
+**Financial reinforcement learning (FinRL®)** ([Document website](https://finrl.readthedocs.io/en/latest/index.html)) is **the first open-source framework** for financial reinforcement learning. FinRL has evolved into an **ecosystem**
+* [FinRL-DeepSeek](https://github.com/AI4Finance-Foundation/FinRL_DeepSeek): LLM-Infused Risk-Sensitive Reinforcement Learning for Trading Agents
 
-| Dev Roadmap  | Stage | Users | Project | Desription |
+| Dev Roadmap  | Stage | Users | Project | Description |
 |----|----|----|----|----|
 | 0.0 (Preparation) | entrance | practitioners | [FinRL-Meta](https://github.com/AI4Finance-Foundation/FinRL-Meta)| gym-style market environments |
 | 1.0 (Proof-of-Concept)| full-stack | developers | [this repo](https://github.com/AI4Finance-Foundation/FinRL) | automatic pipeline |
@@ -210,8 +209,6 @@ Technical indicators: 'macd', 'boll_ub', 'boll_lb', 'rsi_30', 'dx_30', 'close_30
 
 + [Towardsdatascience] [Deep Reinforcement Learning for Automated Stock Trading](https://towardsdatascience.com/deep-reinforcement-learning-for-automated-stock-trading-f1dad0126a02)
 
-A complete list at [blogs](https://github.com/AI4Finance-Foundation/Blogs)
-
 
 ## Publications
 
@@ -314,5 +311,14 @@ Thank you!
 ## LICENSE
 
 MIT License
+```
+Trademark Disclaimer
+
+FinRL® is a registered trademark.
+This license does not grant permission to use the FinRL name, logo, or related trademarks
+without prior written consent, except as permitted by applicable trademark law.
+For trademark inquiries or permissions, please contact: contact@finrl.ai
+
+```
 
 **Disclaimer: We are sharing codes for academic purpose under the MIT education license. Nothing herein is financial advice, and NOT a recommendation to trade real money. Please use common sense and always first consult a professional before trading or investing.**
