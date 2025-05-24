@@ -65,7 +65,9 @@ class PolicyGradient:
         self.action_noise = action_noise
         self.optimizer = optimizer
         self.device = device
+        self.loss_history = []
         self._setup_train(env, self.policy, self.batch_size, self.lr, self.optimizer)
+        
 
     def _setup_train(self, env, policy, batch_size, lr, optimizer):
         """Initializes algorithm before training.
@@ -95,7 +97,7 @@ class PolicyGradient:
             dataset=dataset, batch_size=batch_size, shuffle=False, pin_memory=True
         )
 
-    def train(self, episodes=100):
+    def train(self, episodes=100, callback=None):
         """Training sequence.
 
         Args:
@@ -135,6 +137,27 @@ class PolicyGradient:
             # validation step
             if self.validation_env:
                 self.test(self.validation_env)
+                
+            # 在每轮训练结束后收集指标
+            loss = self._calculate_episode_loss()  # 需要实现损失计算方法
+            portfolio_value = self.train_env._portfolio_value  # 获取当前投资组合价值
+            
+            # 触发回调
+            if callable(callback):
+                callback(
+                    episode=i,
+                    total_episodes=episodes,
+                    loss=loss,
+                    portfolio_value=portfolio_value
+                ) 
+            self.loss_history.clear()
+            
+    def _calculate_episode_loss(self):
+        """计算单次训练的损失值"""
+        if len(self.loss_history) == 0:
+            return 0.0
+        # 取最近一个batch的损失（或按需计算平均）
+        return self.loss_history[-1]
 
     def _setup_test(self, env, policy, batch_size, lr, optimizer):
         """Initializes algorithm before testing.
@@ -246,7 +269,7 @@ class PolicyGradient:
         policy_loss = -torch.mean(
             torch.log(torch.sum(mu * price_variations * trf_mu, dim=1))
         )
-
+        loss_value = policy_loss.item()
         # update policy network
         if test:
             self.test_policy.zero_grad()
@@ -256,3 +279,4 @@ class PolicyGradient:
             self.train_policy.zero_grad()
             policy_loss.backward()
             self.train_optimizer.step()
+            self.loss_history.append(loss_value)

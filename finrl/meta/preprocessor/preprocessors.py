@@ -9,7 +9,7 @@ from sklearn.base import BaseEstimator
 from sklearn.base import TransformerMixin
 from sklearn.preprocessing import MaxAbsScaler
 from stockstats import StockDataFrame as Sdf
-
+import itertools
 from finrl import config
 from finrl.meta.preprocessor.yahoodownloader import YahooDownloader
 
@@ -146,6 +146,7 @@ class FeatureEngineer:
         """
         # clean data
         df = self.clean_data(df)
+        print(f"Cleaned data: {df.head()}")
 
         # add technical indicators using stockstats
         if self.use_technical_indicator:
@@ -179,6 +180,7 @@ class FeatureEngineer:
         :return: (df) pandas dataframe
         """
         df = data.copy()
+<<<<<<< HEAD
         df = df.sort_values(["date", "tic"], ignore_index=True)
         df.index = df.date.factorize()[0]
 
@@ -264,6 +266,26 @@ class FeatureEngineer:
                 print(f"最终股票代码 {tic} 的日期一致，日期数量: {len(tic_dates)}")
 
         return df_final
+=======
+        print(f"before Cleaned data: {df.head()}")
+        # df = df.sort_values(["date", "tic"], ignore_index=True)
+        # df.index = df.date.factorize()[0]
+        # merged_closes = df.pivot_table(index="date", columns="tic", values="close")
+        # merged_closes = merged_closes.dropna(axis=1)
+        # tics = merged_closes.columns
+        # df = df[df.tic.isin(tics)]
+        # df = data.copy()
+        list_ticker = df["tic"].unique().tolist()
+        #only apply to daily level data, need to fix for minute level
+        list_date = list(pd.date_range(df['date'].min(),df['date'].max()).astype(str))
+        combination = list(itertools.product(list_date,list_ticker))
+
+        df_full = pd.DataFrame(combination,columns=["date","tic"]).merge(df,on=["date","tic"],how="left")
+        df_full = df_full[df_full['date'].isin(df['date'])]
+        df_full = df_full.sort_values(['date','tic'])
+        df_full = df_full.fillna(0)
+        return df_full
+>>>>>>> learning
 
     def add_technical_indicator(self, data):
         """
@@ -274,15 +296,17 @@ class FeatureEngineer:
         """
         df = data.copy()
         df = df.sort_values(by=["tic", "date"])
+        print(f"df columns: {df.head()}")
         stock = Sdf.retype(df.copy())
         unique_ticker = stock.tic.unique()
-
+        print(f"Unique tickers: {unique_ticker}")
         for indicator in self.tech_indicator_list:
             indicator_df = pd.DataFrame()
             for i in range(len(unique_ticker)):
                 try:
                     temp_indicator = stock[stock.tic == unique_ticker[i]][indicator]
                     temp_indicator = pd.DataFrame(temp_indicator)
+                    print(f"temp_indicator columns: {temp_indicator.head()}")
                     temp_indicator["tic"] = unique_ticker[i]
                     temp_indicator["date"] = df[df.tic == unique_ticker[i]][
                         "date"
@@ -295,6 +319,10 @@ class FeatureEngineer:
                     )
                 except Exception as e:
                     print(e)
+            print(f"Processing indicator: {indicator}")
+            print("indicator_df columns:", indicator_df.columns.tolist())
+            print("indicator_df sample:\n", indicator_df.head(2))
+
             df = df.merge(
                 indicator_df[["tic", "date", indicator]], on=["tic", "date"], how="left"
             )
@@ -400,3 +428,137 @@ class FeatureEngineer:
         except ValueError:
             raise Exception("Turbulence information could not be added.")
         return turbulence_index
+
+
+
+import tushare as ts
+import pandas as pd
+
+class MarketBreadthFeatureEngineer:
+
+    def __init__(self, index_code, start_date, end_date, tushare_token):
+        """
+        Initializes the MarketBreadthFeatureEngineer with the given parameters.
+
+        Parameters
+        ----------
+        index_code : str
+            The index code (e.g., '399001.SZ' for Shenzhen Index).
+        start_date : str
+            The start date for fetching data (format: 'YYYYMMDD').
+        end_date : str
+            The end date for fetching data (format: 'YYYYMMDD').
+        tushare_token : str
+            Your Tushare API token.
+        """
+        ts.set_token(tushare_token)
+        self.pro = ts.pro_api()
+        self.index_code = index_code
+        self.start_date = start_date
+        self.end_date = end_date
+        self.stock_list = []
+        self.all_data = pd.DataFrame()
+
+    def fetch_index_components(self):
+        """Fetch the component stocks of the given index."""
+        print(f"Fetching index components for {self.index_code}...")
+        index_weights = self.pro.index_weight(index_code=self.index_code, trade_date=self.end_date)
+        self.stock_list = index_weights['con_code'].unique().tolist()
+        print(f"Fetched {len(self.stock_list)} component stocks for index {self.index_code}.")
+
+    def fetch_daily_data(self):
+        """Fetch the daily price data for all component stocks."""
+        print(f"Fetching daily data for stocks from {self.start_date} to {self.end_date}...")
+        for stock_code in self.stock_list:
+            try:
+                stock_data = self.pro.daily(ts_code=stock_code, start_date=self.start_date, end_date=self.end_date)
+                if not stock_data.empty:
+                    self.all_data = pd.concat([self.all_data, stock_data], ignore_index=True)
+            except Exception as e:
+                print(f"Error fetching data for {stock_code}: {e}")
+        print(f"Fetched daily data for {len(self.stock_list)} stocks.")
+
+    def add_market_breadth(self):
+        """
+        Calculates and adds market breadth indicators to self.all_data.
+
+        Returns
+        -------
+        pd.DataFrame
+            The dataframe with added columns for market breadth indicators.
+        """
+        df_copy = self.all_data.copy()
+
+        # 计算每日涨跌幅
+        df_copy['pct_chg'] = df_copy.groupby('ts_code')['close'].pct_change() * 100
+
+        # 标记上涨和下跌
+        df_copy['up'] = (df_copy['pct_chg'] > 0).astype(int)
+        df_copy['down'] = (df_copy['pct_chg'] < 0).astype(int)
+
+        # 按日期统计上涨和下跌的股票数量
+        daily_up = df_copy.groupby('trade_date')['up'].sum()
+        daily_down = df_copy.groupby('trade_date')['down'].sum()
+
+        # 创建市场宽度和广度指标的 DataFrame
+        market_breadth = pd.DataFrame({
+            'trade_date': daily_up.index,
+            'up_count': daily_up.values,
+            'down_count': daily_down.values
+        })
+
+        # 计算上涨/下跌比率和市场宽度指标
+        market_breadth['up_down_ratio'] = market_breadth['up_count'] / (market_breadth['down_count'] + 1e-6)  # 避免除以0
+        market_breadth['market_breadth'] = market_breadth['up_count'] - market_breadth['down_count']
+
+        return market_breadth
+
+    def calculate_and_merge_market_breadth(self, df):
+        """
+        Fetches data, calculates market breadth indicators, and merges them with the given dataframe.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            The input dataframe to which market breadth indicators will be added.
+
+        Returns
+        -------
+        pd.DataFrame
+            The input dataframe with added market breadth indicators.
+        """
+        # Step 1: Fetch index components and daily data
+        self.fetch_index_components()
+        self.fetch_daily_data()
+
+        # Step 2: Calculate the market breadth indicators
+        market_breadth = self.add_market_breadth()
+
+        # Step 3: Merge market breadth with the input dataframe
+        market_breadth['trade_date'] = pd.to_datetime(market_breadth['trade_date'], format='%Y%m%d')
+        df['date'] = pd.to_datetime(df['date'])
+
+        # Merge the market breadth metrics into the provided dataframe
+        df_merged = pd.merge(df, market_breadth, left_on='date', right_on='trade_date', how='left')
+
+        # Drop the duplicate 'trade_date' column
+        df_merged = df_merged.drop(columns=['trade_date'])
+
+        return df_merged
+
+    def preprocess_data(self, df):
+        """
+        Preprocess the given dataframe by adding market breadth indicators.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            The input dataframe to be processed.
+
+        Returns
+        -------
+        pd.DataFrame
+            The processed dataframe with market breadth indicators.
+        """
+        # Call the new method to calculate and merge market breadth
+        return self.calculate_and_merge_market_breadth(df)
