@@ -9,7 +9,7 @@ from sklearn.base import BaseEstimator
 from sklearn.base import TransformerMixin
 from sklearn.preprocessing import MaxAbsScaler
 from stockstats import StockDataFrame as Sdf
-
+import itertools
 from finrl import config
 from finrl.meta.preprocessor.yahoodownloader import YahooDownloader
 
@@ -146,6 +146,7 @@ class FeatureEngineer:
         """
         # clean data
         df = self.clean_data(df)
+        print(f"Cleaned data: {df.head()}")
 
         # add technical indicators using stockstats
         if self.use_technical_indicator:
@@ -180,23 +181,24 @@ class FeatureEngineer:
         :return: (df) pandas dataframe
         """
         df = data.copy()
-        df = df.sort_values(["date", "tic"], ignore_index=True)
-        df.index = df.date.factorize()[0]
-        merged_closes = df.pivot_table(index="date", columns="tic", values="close")
-        merged_closes = merged_closes.dropna(axis=1)
-        tics = merged_closes.columns
-        df = df[df.tic.isin(tics)]
+        print(f"before Cleaned data: {df.head()}")
+        # df = df.sort_values(["date", "tic"], ignore_index=True)
+        # df.index = df.date.factorize()[0]
+        # merged_closes = df.pivot_table(index="date", columns="tic", values="close")
+        # merged_closes = merged_closes.dropna(axis=1)
+        # tics = merged_closes.columns
+        # df = df[df.tic.isin(tics)]
         # df = data.copy()
-        # list_ticker = df["tic"].unique().tolist()
-        # only apply to daily level data, need to fix for minute level
-        # list_date = list(pd.date_range(df['date'].min(),df['date'].max()).astype(str))
-        # combination = list(itertools.product(list_date,list_ticker))
+        list_ticker = df["tic"].unique().tolist()
+        #only apply to daily level data, need to fix for minute level
+        list_date = list(pd.date_range(df['date'].min(),df['date'].max()).astype(str))
+        combination = list(itertools.product(list_date,list_ticker))
 
-        # df_full = pd.DataFrame(combination,columns=["date","tic"]).merge(df,on=["date","tic"],how="left")
-        # df_full = df_full[df_full['date'].isin(df['date'])]
-        # df_full = df_full.sort_values(['date','tic'])
-        # df_full = df_full.fillna(0)
-        return df
+        df_full = pd.DataFrame(combination,columns=["date","tic"]).merge(df,on=["date","tic"],how="left")
+        df_full = df_full[df_full['date'].isin(df['date'])]
+        df_full = df_full.sort_values(['date','tic'])
+        df_full = df_full.fillna(0)
+        return df_full
 
     def add_technical_indicator(self, data):
         """
@@ -207,15 +209,17 @@ class FeatureEngineer:
         """
         df = data.copy()
         df = df.sort_values(by=["tic", "date"])
+        print(f"df columns: {df.head()}")
         stock = Sdf.retype(df.copy())
         unique_ticker = stock.tic.unique()
-
+        print(f"Unique tickers: {unique_ticker}")
         for indicator in self.tech_indicator_list:
             indicator_df = pd.DataFrame()
             for i in range(len(unique_ticker)):
                 try:
                     temp_indicator = stock[stock.tic == unique_ticker[i]][indicator]
                     temp_indicator = pd.DataFrame(temp_indicator)
+                    print(f"temp_indicator columns: {temp_indicator.head()}")
                     temp_indicator["tic"] = unique_ticker[i]
                     temp_indicator["date"] = df[df.tic == unique_ticker[i]][
                         "date"
@@ -228,6 +232,10 @@ class FeatureEngineer:
                     )
                 except Exception as e:
                     print(e)
+            print(f"Processing indicator: {indicator}")
+            print("indicator_df columns:", indicator_df.columns.tolist())
+            print("indicator_df sample:\n", indicator_df.head(2))
+
             df = df.merge(
                 indicator_df[["tic", "date", indicator]], on=["tic", "date"], how="left"
             )

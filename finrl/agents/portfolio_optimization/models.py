@@ -67,7 +67,7 @@ class DRLAgent:
         return model(self.env, **model_kwargs)
 
     @staticmethod
-    def train_model(model, episodes=100):
+    def train_model(model, episodes=100, callback=None):
         """Trains portfolio optimization model.
 
         Args:
@@ -77,7 +77,7 @@ class DRLAgent:
         Returns:
             An instance of the trained model.
         """
-        model.train(episodes)
+        model.train(episodes, callback)
         return model
 
     @staticmethod
