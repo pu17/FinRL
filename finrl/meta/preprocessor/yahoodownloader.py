@@ -33,7 +33,7 @@ class YahooDownloader:
         self.end_date = end_date
         self.ticker_list = ticker_list
 
-    def fetch_data(self, proxy=None) -> pd.DataFrame:
+    def fetch_data(self, proxy=None, auto_adjust=False) -> pd.DataFrame:
         """Fetches data from Yahoo API
         Parameters
         ----------
@@ -49,8 +49,14 @@ class YahooDownloader:
         num_failures = 0
         for tic in self.ticker_list:
             temp_df = yf.download(
-                tic, start=self.start_date, end=self.end_date, proxy=proxy
+                tic,
+                start=self.start_date,
+                end=self.end_date,
+                proxy=proxy,
+                auto_adjust=auto_adjust,
             )
+            if temp_df.columns.nlevels != 1:
+                temp_df.columns = temp_df.columns.droplevel(1)
             temp_df["tic"] = tic
             if len(temp_df) > 0:
                 # data_df = data_df.append(temp_df)
@@ -63,20 +69,22 @@ class YahooDownloader:
         data_df = data_df.reset_index()
         try:
             # convert the column names to standardized names
-            data_df.columns = [
-                "date",
-                "open",
-                "high",
-                "low",
-                "close",
-                "adjcp",
-                "volume",
-                "tic",
-            ]
-            # use adjusted close price instead of close price
-            data_df["close"] = data_df["adjcp"]
-            # drop the adjusted close price column
-            data_df = data_df.drop(labels="adjcp", axis=1)
+            data_df.rename(
+                columns={
+                    "Date": "date",
+                    "Adj Close": "adjcp",
+                    "Close": "close",
+                    "High": "high",
+                    "Low": "low",
+                    "Volume": "volume",
+                    "Open": "open",
+                    "tic": "tic",
+                },
+                inplace=True,
+            )
+
+            if not auto_adjust:
+                data_df = self._adjust_prices(data_df)
         except NotImplementedError:
             print("the features are not supported currently")
         # create day of the week column (monday = 0)
@@ -92,6 +100,15 @@ class YahooDownloader:
         data_df = data_df.sort_values(by=["date", "tic"]).reset_index(drop=True)
 
         return data_df
+
+    def _adjust_prices(self, data_df: pd.DataFrame) -> pd.DataFrame:
+        # use adjusted close price instead of close price
+        data_df["adj"] = data_df["adjcp"] / data_df["close"]
+        for col in ["open", "high", "low", "close"]:
+            data_df[col] *= data_df["adj"]
+
+        # drop the adjusted close price column
+        return data_df.drop(["adjcp", "adj"], axis=1)
 
     def select_equal_rows_stock(self, df):
         df_check = df.tic.value_counts()
