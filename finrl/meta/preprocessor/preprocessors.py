@@ -144,7 +144,7 @@ class FeatureEngineer:
         @:return: a DataMatrices object
         """
         # clean data
-        df = self.clean_data(df)
+        # df = self.clean_data(df)
 
         # add technical indicators using stockstats
         if self.use_technical_indicator:
@@ -330,8 +330,11 @@ class FeatureEngineer:
         vix = df_vix[["date", "close"]]
         vix.columns = ["date", "vix"]
 
-        df = df.merge(vix, on="date")
+        df = df.merge(vix, on="date", how="left")  
         df = df.sort_values(["date", "tic"]).reset_index(drop=True)
+            # 在合并前添加验证
+        print("原始数据日期范围:", df.date.min(), df.date.max())
+        print("VIX数据日期范围:", vix.date.min(), vix.date.max())
         return df
 
     def add_turbulence(self, data):
