@@ -44,7 +44,7 @@ class TushareDownloader:
     def __init__(self, start_date: str, end_date: str, ticker_list: list):
         self.start_date = start_date
         self.end_date = end_date
-        self.ticker_list = self._add_stock_suffix(self.ticker_list)
+        self.ticker_list = self._add_stock_suffix(ticker_list)
         self.api_token = 'dcd771227705b0513e5a9cd4903ec0e0aedf182d7308af30afc3388d'
         ts.set_token(self.api_token)
         self.pro = ts.pro_api()

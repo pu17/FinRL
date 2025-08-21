@@ -180,7 +180,6 @@ class FeatureEngineer:
         :return: (df) pandas dataframe
         """
         df = data.copy()
-<<<<<<< HEAD
         df = df.sort_values(["date", "tic"], ignore_index=True)
         df.index = df.date.factorize()[0]
 
@@ -266,7 +265,6 @@ class FeatureEngineer:
                 print(f"最终股票代码 {tic} 的日期一致，日期数量: {len(tic_dates)}")
 
         return df_final
-=======
         print(f"before Cleaned data: {df.head()}")
         # df = df.sort_values(["date", "tic"], ignore_index=True)
         # df.index = df.date.factorize()[0]
@@ -285,7 +283,7 @@ class FeatureEngineer:
         df_full = df_full.sort_values(['date','tic'])
         df_full = df_full.fillna(0)
         return df_full
->>>>>>> learning
+
 
     def add_technical_indicator(self, data):
         """
