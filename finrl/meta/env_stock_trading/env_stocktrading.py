@@ -411,22 +411,27 @@ class StockTradingEnv(gym.Env):
         return self.state
 
     def _initiate_state(self):
+        print("self.data 的类型:", type(self.data))
+        print("self.data 的内容:", self.data)
+        print("self.data.close 的类型:", type(self.data.close))
+        print("self.data.close 的值:", self.data.close)
+        
         if self.initial:
             # For Initial State
             if len(self.df.tic.unique()) > 1:
                 # for multiple stock
                 state = (
                     [self.initial_amount]
-                    + self.data.close.values.tolist()
+                    + (self.data.close.values.tolist() if hasattr(self.data.close, 'values') else [self.data.close])
                     + self.num_stock_shares
                     + sum(
                         (
-                            self.data[tech].values.tolist()
+                            (self.data[tech].values.tolist() if hasattr(self.data[tech], 'values') else [self.data[tech]])
                             for tech in self.tech_indicator_list
                         ),
                         [],
                     )
-                )  # append initial stocks_share to initial state, instead of all zero
+                )
             else:
                 # for single stock
                 state = (

@@ -35,6 +35,7 @@ DOW_30_TICKER = [
     "WMT",
     "DIS",
     "DOW",
+    "SMCI"
 ]
 
 # Nasdaq 100 constituents at 2019/01
